@@ -1,3 +1,13 @@
+#Project specific excludes
+QEndoscopy.dist/
+QEndoscopy.build/
+logs/*
+exports/*
+midas/
+QE_Build*
+tests/
+.vs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
