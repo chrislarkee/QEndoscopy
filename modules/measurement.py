@@ -101,10 +101,11 @@ def updateOverlay(depthmap, newThreshold):
 
     #recordData
     currentEntry.threshold = newThreshold    
-    currentEntry.distance = round(log(newThreshold / 255.0) / log(0.25),4)
+    currentEntry.distance = round(log(newThreshold / 255.0) / log(0.25),5)
     currentEntry.areaPX = round(cv2.contourArea(contours[idealContour]),2)
     
-    k0, k1, k2, k3 = -9.5657e-7, 6.5697e-6, 1.8917e-6, -1.8411e-7
+    #k0, k1, k2, k3 = -9.5657e-7, 6.5697e-6, 1.8917e-6, -1.8411e-7
+    k0, k1, k2, k3 = -1.05e-6, 6.74e-6, 1.98e-6, -1.86e-7
     k = k0 + (k1 * currentEntry.distance) + (k2 * pow(currentEntry.distance,2)) + (k3 * pow(currentEntry.distance,3))
     currentEntry.areaMM = round(k * currentEntry.areaPX, 5)
     #a,b = -1.8543e-7, 4.2585e-5
