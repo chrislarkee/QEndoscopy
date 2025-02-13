@@ -1,5 +1,6 @@
-import cv2
-from numpy import interp, zeros, clip
+﻿import cv2
+#from numpy import interp, zeros, clip
+import numpy as np
 from math import floor, pow, log
 from datetime import datetime
 import xlsxwriter
@@ -14,6 +15,7 @@ _entryCounter = -1
 overlayEnabled = False
 _overlayImage = None
 framerate = 29.97
+_previouspoint = None
 
 csv = None
 
@@ -25,12 +27,11 @@ class LogEntry:
         self.counter = _entryCounter
         self._frame = -1
         self.timecode = "n/a"
-        self.minmax = 0
-        self.threshold = 0        
+        self.maxDistance = 0      
         self.distance = 0
         self.areaPX = 0 
         self.areaMM = 0
-        self.cameraPos = "?"        
+        self.cameraPos = "0,0,0"
 
     @property
     def frame(self):
@@ -54,7 +55,58 @@ def store():
     global _database, currentEntry
     _database[currentEntry.counter] = currentEntry  
     currentEntry = LogEntry()
+
+class Lensmath:
+    #constant lens parameters (from Blender)
+    IMG_SIZE     = 720.0    #px
+    FOV          = np.radians(125.0)
+    SENSOR_WIDTH = 3.6      #mm. square sensor.
+    FOCAL_LENGTH = 2.5      #mm
     
+    @classmethod
+    def convertPoint(self, pixel_coords, depth):    
+        # Compute the effective focal length in pixels
+        f_px = self.FOCAL_LENGTH * (self.IMG_SIZE / self.SENSOR_WIDTH)
+
+        # Compute the maximum field angle θ_max from the equisolid model
+        theta_max = self.FOV / 2
+
+        # Convert pixel coordinates to normalized image coordinates
+        x = (pixel_coords[0] - (self.IMG_SIZE / 2))
+        y = (pixel_coords[1] - (self.IMG_SIZE / 2))
+
+        # Compute radius in pixels
+        r = np.sqrt(x**2 + y**2)
+
+        # Convert radius to field angle θ using the equisolid model
+        theta = 2 * np.arcsin(r / (2 * f_px))
+        theta = np.clip(theta, 0, theta_max)
+
+        # Compute azimuth angle φ
+        phi = np.arctan2(y, x)
+
+        # Convert spherical coordinates to Cartesian 3D coordinates
+        X = depth * np.sin(theta) * np.cos(phi)
+        Y = depth * np.sin(theta) * np.sin(phi)
+        Z = depth * np.cos(theta)
+
+        return (X, Y, Z)
+    
+    @classmethod
+    def convertArea(self, area, depth):
+        # Compute the effective focal length in pixels
+        f_px = self.FOCAL_LENGTH * (self.IMG_SIZE / self.SENSOR_WIDTH)
+
+        # Approximate the field angle per pixel using equisolid projection
+        theta_per_pixel = (self.FOV / 2) / (f_px / 2)  # Approximate small-angle field resolution
+
+        # Convert pixel area to angular area
+        angular_area = area * (theta_per_pixel ** 2)
+
+        # Convert angular area to real-world area (approximation)
+        real_area = (depth ** 2) * angular_area
+
+        return real_area
 
 def startup(filename):
     global _database, currentEntry, _entryCounter
@@ -78,40 +130,6 @@ def startup(filename):
     else:
         csv = None
 
-
-#this input is the b&w depth map
-def updateOverlay(depthmap, newThreshold):
-    global _overlayImage, currentEntry
-    #calculate the threshold    
-    ret, thresholded = cv2.threshold(depthmap, newThreshold, depthmap.max(), cv2.THRESH_BINARY_INV)
-    if len(thresholded.shape) == 3:
-        thresholded = cv2.split(thresholded)[1]
-    #thresholded = interp(thresholded, (depthmap.min(), depthmap.max()), (0,255)).astype('uint8')
-    thresholded = thresholded.astype('uint8')
-    contours,hierarchy = cv2.findContours(thresholded, 1, 2)
-    #print("break")
-
-    #which contour is the biggest?
-    idealContour = selectCenterContour(contours) 
-
-    #prepare the overlay Image
-    #blank image
-    _overlayImage = zeros((depthmap.shape[0],depthmap.shape[1],3), dtype="uint8")
-    _overlayImage = cv2.drawContours(_overlayImage, contours, idealContour, (0, 215, 60), 2, cv2.LINE_AA)
-
-    #recordData
-    currentEntry.threshold = newThreshold    
-    currentEntry.distance = round(log(newThreshold / 255.0) / log(0.25),5)
-    currentEntry.areaPX = round(cv2.contourArea(contours[idealContour]),2)
-    
-    #k0, k1, k2, k3 = -9.5657e-7, 6.5697e-6, 1.8917e-6, -1.8411e-7
-    k0, k1, k2, k3 = -1.05e-6, 6.74e-6, 1.98e-6, -1.86e-7
-    k = k0 + (k1 * currentEntry.distance) + (k2 * pow(currentEntry.distance,2)) + (k3 * pow(currentEntry.distance,3))
-    currentEntry.areaMM = round(k * currentEntry.areaPX, 5)
-    #a,b = -1.8543e-7, 4.2585e-5
-    #currentEntry.areaMM = round((a * newThreshold + b) * currentEntry.areaPX,4)    
-        
-
 def selectCenterContour(contours):
     if len(contours) == 0:
         return -1
@@ -126,14 +144,41 @@ def selectCenterContour(contours):
                 selectedContour = i
         return selectedContour
 
+#this input is the b&w depth map
+def updateOverlayCross(depthmap, threshold):
+    global _overlayImage, currentEntry
+    #calculate the threshold    
+    ret, thresholdImg = cv2.threshold(depthmap, threshold, depthmap.max(), cv2.THRESH_BINARY_INV)
+    if len(thresholdImg.shape) == 3:
+        thresholdImg = cv2.split(thresholdImg)[1]
+    #thresholdImg = interp(thresholdImg, (depthmap.min(), depthmap.max()), (0,255)).astype('uint8')
+    thresholdImg = thresholdImg.astype('uint8')
+    contours,hierarchy = cv2.findContours(thresholdImg, 1, 2)
 
+    #which contour is the biggest?
+    idealContour = selectCenterContour(contours) 
+
+    #prepare the overlay Image
+    _overlayImage = np.zeros((depthmap.shape[0],depthmap.shape[1],3), dtype="uint8")
+    _overlayImage = cv2.drawContours(_overlayImage, contours, idealContour, (0, 215, 60), 2, cv2.LINE_AA)
+
+    #recordData
+    currentEntry.distance = round(threshold,3)
+
+    area = cv2.contourArea(contours[idealContour])
+    currentEntry.areaPX = round(area,1)    
+    currentEntry.areaMM = round(Lensmath.convertArea(area, threshold), 4)
+    
+        
+def updateOverlayLine(depthMap, mouseCoord):
+    pass
 
 def addOverlay(image):
     global _overlayImage
     if overlayEnabled == False:
         return image
     newImage = cv2.add(image, _overlayImage)
-    newImage = clip(newImage, 0, 255)
+    newImage = np.clip(newImage, 0, 255)
     #cv2.imshow('image', newImage)    
     return newImage
 
@@ -151,8 +196,7 @@ def generatePreview():
         previewLine = [line.counter,
             line.frame,
             line.timecode,
-            line.minmax,
-            line.threshold,
+            line.maxDistance,
             line.distance,
             line.areaPX,
             line.areaMM,
@@ -175,7 +219,7 @@ def writeLog(videoname, filename):
     currentTime = datetime.now().strftime("%Y-%m-%d %H:%M")
     worksheet.write_row(1, 0, ("Log generated on ", currentTime) ,cell_format)
     worksheet.write_row(3, 0, (
-        "Counter", "Frame", "Timecode", "MinMax", "Threshold", "Distance", "Area (px)", "Area (mm^2)", "CameraPos"), cell_format)
+        "Counter", "Frame", "Timecode", "MaxDistance", "Distance", "Area (px)", "Area (mm^2)", "CameraPos"), cell_format)
 
     #iterate through the entries    
     rowOffset = 4

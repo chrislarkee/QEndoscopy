@@ -8,12 +8,12 @@ import ctypes
 
 #sys.path.append("..")
 import modules.layouts as layouts  #all gui views.
-import modules.imaging as i        #openCV image processing
-import modules.analysis as mi      #Midas depth analysis
-import modules.measurement as me   #image annotation
+import modules.imaging as QEImaging        #openCV image processing
+#import modules.analysis as mi      #ML depth analysis
+import modules.measurement as QEMeasurement   #image annotation
 
-vid = None      #cache the imaging settings & buffers
-midas = None    #the AI instance
+vid = None      #The QEImaging instance
+depth = None    #the QEMeasurement instance
 pixelScale = 0.0
 
 class main(layouts.MainInterface):  
@@ -54,7 +54,7 @@ class main(layouts.MainInterface):
         
     def openVideo(self, event):
         self.b_playVideo.SetValue(False)
-        global vid, midas
+        global vid, depth
         #this shows up the 2nd time the user opens a video.
         if vid != None:
             dlg = wx.MessageDialog(None, "Opening a new file will reset the program.",'QE',wx.ICON_WARNING|wx.OK|wx.CANCEL)
@@ -70,25 +70,25 @@ class main(layouts.MainInterface):
         
         #load the video as this persistent object
         progress.Pulse(newmsg="Loading Video Data...")
-        me.startup(dlg.GetPath())
+        QEMeasurement.startup(dlg.GetPath())
         if dlg.GetPath()[-3:] == "csv":
             progress.Destroy()
             wx.MessageBox('CSV files cannot be loaded in this way.', 'Error.', wx.OK | wx.ICON_ERROR)
             return
         else:
-            vid = i.EndoVideo(dlg.GetPath())
+            vid = QEImaging.EndoVideo(dlg.GetPath())
 
-        progress.Pulse(newmsg="Loading Depth Map...")
+        progress.Pulse(newmsg="Loading Depth Libraries...")
+        import modules.analysis as QEDepth      #ML depth analysis
+
+        progress.Pulse(newmsg="Starting Depth Map...")
         #check if there's a depth map available
         depthFile = vid._path[0:-4] + "_depth.mp4"
         if isfile(depthFile):
-            midas = mi.MidasSetup(depthFile, vid)
+            depth = QEDepth.Depth(depthFile, vid)            
+            wx.MessageBox('A depth file was found and will be used instead of evaluation depth.', 'Error.', wx.OK | wx.ICON_ERROR)
         else: 
-            progress.Destroy()
-            wx.MessageBox('A depth file could not be found. Select a different file.', 'Error.', wx.OK | wx.ICON_ERROR)            
-            vid = None
-            return
-            #midas = mi.MidasSetup(None, None)
+            depth = QEDepth.Depth(None, vid)
         
         #apply changes from the loaded video to the gui
         progress.Pulse(newmsg="Processing metadata...")
@@ -121,48 +121,48 @@ class main(layouts.MainInterface):
         self.Bind(wx.EVT_TIMER, self.playVideoTick)
 
         global vid
-        self.timer.Start(int(1000.0 / vid._rate / vid.speed))
+        self.timer.Start(int(1000.0 / 30.0))
         self.i_Depth.SetBitmap(vid.blankFrame())
 
     def playVideoTick(self, event):
-        global vid, midas
+        global vid, depth
         if self.b_playVideo.GetValue() == False:
             self.timer.Stop()
-            self.i_Depth.SetBitmap(midas.processDepth(vid.imageCache, vid.guiSize))
-            self.m_thresholdSlider.SetMax(int(midas.minmax[1] * 100 * .95))
+            self.i_Depth.SetBitmap(depth.processDepth(vid.imageCache, vid.guiSize))
+            self.m_thresholdSlider.SetMax(int(depth.minmax[1] * 100 * .95))
         else:
             #left frame only
-            me.overlayEnabled = False
+            QEMeasurement.overlayEnabled = False
             self.i_Image.SetBitmap(vid.nextFrame())
             self.m_Time.SetValue(int(vid.currentFrame))
 
     def framePrevious(self, event):
         self.b_playVideo.SetValue(False)
 
-        global vid, midas
+        global vid, depth
         if (vid == None):
             return
         #left & right frame
-        me.overlayEnabled = False
+        QEMeasurement.overlayEnabled = False
         self.i_Image.SetBitmap(vid.prevFrame())
-        self.i_Depth.SetBitmap(midas.processDepth(vid.imageCache, vid.guiSize))
+        self.i_Depth.SetBitmap(depth.processDepth(vid.imageCache, vid.guiSize))
         self.m_Time.SetValue(int(vid.currentFrame))
 
     def frameNext(self, event):  
         self.b_playVideo.SetValue(False)
-        global vid, midas
+        global vid, depth
         if (vid == None):
             return
         #left & right frames
-        me.overlayEnabled = False
+        QEMeasurement.overlayEnabled = False
         self.i_Image.SetBitmap(vid.nextFrame())
-        self.i_Depth.SetBitmap(midas.processDepth(vid.imageCache, vid.guiSize))
+        self.i_Depth.SetBitmap(depth.processDepth(vid.imageCache, vid.guiSize))
         self.m_Time.SetValue(int(vid.currentFrame))
-        self.m_thresholdSlider.SetMin(int(midas.minmax[0] * 100 + 1))
-        if midas.minmax[1] >= 4000:
+        self.m_thresholdSlider.SetMin(int(depth.minmax[0] * 100 + 1))
+        if depth.minmax[1] >= 4000:
             self.m_thresholdSlider.SetMax(4000)
         else:
-            self.m_thresholdSlider.SetMax(int(midas.minmax[1] * 100 * .95))
+            self.m_thresholdSlider.SetMax(int(depth.minmax[1] * 100 * .95))
 
     def scrub(self, event):
         self.b_playVideo.SetValue(False)
@@ -176,60 +176,58 @@ class main(layouts.MainInterface):
         self.m_Time.SetValue(int(vid.currentFrame))
 
     def scrubDone(self,event):
-        global vid, midas
+        global vid, depth
         if vid == None:
             return
         #right frame only
-        midas.clearAccumulator()
-        me.overlayEnabled = False
-        self.i_Depth.SetBitmap(midas.processDepth(vid.imageCache, vid.guiSize))
-        self.m_thresholdSlider.SetMin(int(midas.minmax[0] * 100 + 1))
-        if midas.minmax[1] >= 4000:
+        QEMeasurement.overlayEnabled = False
+        self.i_Depth.SetBitmap(depth.processDepth(vid.imageCache, vid.guiSize))
+        self.m_thresholdSlider.SetMin(int(depth.minmax[0] * 100 + 1))
+        if depth.minmax[1] >= 4000:
             self.m_thresholdSlider.SetMax(4000)
         else:
-            self.m_thresholdSlider.SetMax(int(midas.minmax[1] * 100 * .95))
+            self.m_thresholdSlider.SetMax(int(depth.minmax[1] * 100 * .95))
 
     def threshChange(self,event): 
-        global vid, midas
+        global vid, depth
         if vid == None:
             return
-        me.overlayEnabled = True
-        me.updateOverlay(midas.dataCache, float(self.m_thresholdSlider.GetValue()) / 100.0)
+        QEMeasurement.overlayEnabled = True
+        QEMeasurement.updateOverlayCross(depth.dataCache, float(self.m_thresholdSlider.GetValue()) / 100.0)
         #REFRESH
-        self.i_Depth.SetBitmap(midas.postProcess(vid.guiSize))
+        self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
         self.i_Image.SetBitmap(vid.refreshAnnoation())
-        status = "Threshold: {}\nDistance: {}\n\nArea (px): {}\nArea (mm^2): {}".format(me.currentEntry.threshold, me.currentEntry.distance, me.currentEntry.areaPX, me.currentEntry.areaMM)
+        status = f"Distance: {QEMeasurement.currentEntry.distance}\nArea (px): {QEMeasurement.currentEntry.areaPX}\nArea (mm^2): {QEMeasurement.currentEntry.areaMM}"
         self.t_statusText.SetValue(status)
 
 
     ###BUTTON FUNCTIONS###
     def showSettings(self, event):
         self.b_playVideo.SetValue(False)
-        me.overlayEnabled = False
+        QEMeasurement.overlayEnabled = False
         #pop up the settings layout, as a modal window
         dlg = settings(self)
         if dlg.ShowModal() == wx.ID_OK:
             #the modal has closed; apply the changed parameters to the GUI
-            global vid, midas
+            global vid, depth
             self.m_Time.SetMin(vid.startFrame)
             self.m_Time.SetMax(vid.endFrame)
             vid.currentFrame = vid.startFrame            
             self.i_Image.SetBitmap(vid.specificFrame(vid.startFrame))
-            midas.clearAccumulator()
-            self.i_Depth.SetBitmap(midas.processDepth(vid.imageCache, vid.guiSize))
+            self.i_Depth.SetBitmap(depth.processDepth(vid.imageCache, vid.guiSize))
             self.m_Time.SetValue(int(vid.startFrame))
             self.Layout()
 
     def clearMeasurements(self, event):
-        me.overlayEnabled = False
-        self.i_Depth.SetBitmap(midas.postProcess(vid.guiSize))
+        QEMeasurement.overlayEnabled = False
+        self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
         self.i_Image.SetBitmap(vid.refreshAnnoation())
         self.t_statusText.SetValue("Annotation Cleared.")
 
     def recordMeasurement(self, event):
         #finalize data
-        global vid, midas, pixelScale
-        me.currentEntry.frame = vid.currentFrame       
+        global vid, depth, pixelScale
+        QEMeasurement.currentEntry.frame = vid.currentFrame       
         status = self.t_statusText.GetValue() + "\nStored."
         self.t_statusText.SetValue(status)
         
@@ -237,15 +235,15 @@ class main(layouts.MainInterface):
         screenshotPath = getcwd() + "\\logs\\" + vid.nicename
         if isdir(screenshotPath) == False:
             mkdir(screenshotPath)
-        shot_filename = screenshotPath + "\\" + vid.nicename + "_" + str(me.counter()).zfill(2) + ".png"
+        shot_filename = screenshotPath + "\\" + vid.nicename + "_" + str(QEMeasurement.counter()).zfill(2) + ".png"
         rect = self.GetRect() # pixelScale
         crop = (rect.Left, rect.Top, rect.Right, rect.Bottom)     #wx and PIL use different formats.
 
         #take screenshot
-        i.takeScreenshot(crop,shot_filename)       
+        QEImaging.takeScreenshot(crop,shot_filename)       
 
         #commit the log
-        me.store()
+        QEMeasurement.store()
 
     def showExporter(self, event):
         self.b_playVideo.SetValue(False)
@@ -255,7 +253,7 @@ class main(layouts.MainInterface):
 
     def exportImage(self, event):
         self.b_playVideo.SetValue(False)
-        global vid, midas
+        global vid, depth
         defaultName = vid.nicename + "_f" + str(int(vid.currentFrame)) + ".jpg"
         dlg = wx.TextEntryDialog(self, message="Enter a filename for the image (.jpg or .png)", caption="Save Image", value=defaultName)
         if dlg.ShowModal() == wx.ID_OK:
@@ -265,33 +263,47 @@ class main(layouts.MainInterface):
         defaultName = vid.nicename + "_f" + str(int(vid.currentFrame)) + "_depth.jpg"
         dlg = wx.TextEntryDialog(self, message="Enter a filename for the depth analysis. (.jpg, .png, or .npy)", caption="Save Depth", value=defaultName)
         if dlg.ShowModal() == wx.ID_OK:
-            midas.exportImage(dlg.GetValue())
+            depth.exportImage(dlg.GetValue())
         dlg.Destroy()
 
     def openHelp(self, event):
         #launch the PDF of the documentation using the system default PDF loader
         startfile("QEndoscopy Documentation.pdf")
+
+    def changeTool(self, event):
+        self.clearMeasurements(event)
         
 
     ###IMAGE INTERACTION###
-    def pickPoint( self, event):     
+    def pickPoint(self, event):     
         if self.b_playVideo.GetValue() == True:
             return
-        global vid, midas
+        global vid, depth
         if (vid == None):
             return
         #print(event.GetId())       #does it matter which one we clicked?
 
         mouseCoords = event.GetPosition()
-        targetCoords = (int(mouseCoords[0] / vid.guiSize * vid.fullSize), int(mouseCoords[1] / vid.guiSize * vid.fullSize))
-        measurement = midas.dataCache[targetCoords[0]][targetCoords[1]]
-        #print(measurement)
+        targetCoords = (int(mouseCoords[0] / vid.guiSize * 720), int(mouseCoords[1] / vid.guiSize * 720))
         
-        me.updateOverlay(midas.dataCache, measurement)
-        self.m_thresholdSlider.SetValue(int(measurement * 100))
+        if self.b_mtool.GetCurrentSelection() == 0:
+            #cross section
+            threshold = depth.dataCache[targetCoords[1]][targetCoords[0]]
+            self.m_thresholdSlider.SetValue(int(threshold * 100))
+            QEMeasurement.updateOverlayCross(depth.dataCache, threshold)            
+            status = f"Distance: {QEMeasurement.currentEntry.distance}\nArea (px): {QEMeasurement.currentEntry.areaPX}\nArea (mm^2): {QEMeasurement.currentEntry.areaMM}"
+            self.t_statusText.SetValue(status)
+        elif self.b_mtool.GetCurrentSelection() == 1: 
+            #line
+            QEMeasurement.updateOverlayLine(depth.dataCache, (targetCoords[1],targetCoords[0]))
+            #self.t_statusText.SetValue(status)
+        elif self.b_mtool.GetCurrentSelection() == 2:
+            #polygon
+            pass
+
         #REFRESH
-        me.overlayEnabled = True
-        self.i_Depth.SetBitmap(midas.postProcess(vid.guiSize))
+        QEMeasurement.overlayEnabled = True
+        self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
         self.i_Image.SetBitmap(vid.refreshAnnoation())
         
         #self.t_export.SetValue(measurement.report())
@@ -300,14 +312,14 @@ class main(layouts.MainInterface):
     ###WINDOW MANAGEMENT###
     #if the window has been resized, scale the images to fit the new shape.
     def setSize(self, event):        
-        global vid, midas
+        global vid, depth
         if vid == None:
             return
 
         if self.i_Image.GetSize().Width != vid.guiSize:
             vid.guiSize = self.i_Image.GetSize().Width
             self.i_Image.SetBitmap(vid.nextFrame())
-            self.i_Depth.SetBitmap(midas.processDepth(vid.imageCache, vid.guiSize))
+            self.i_Depth.SetBitmap(depth.processDepth(vid.imageCache, vid.guiSize))
             self.m_Time.SetValue(int(vid.currentFrame))
         self.Layout()
 
@@ -322,7 +334,7 @@ class settings(layouts.VideoSettings):
     def __init__(self, parent):
         #initialize parent class
         layouts.VideoSettings.__init__(self,parent)
-        global vid, midas
+        global vid, depth
 
         #sync up initial values
         self.b_TrimStart.SetMax(vid._maxFrame)
@@ -330,11 +342,9 @@ class settings(layouts.VideoSettings):
         self.b_TrimEnd.SetMin(self.b_TrimStart.GetValue() + 1)
         self.b_TrimEnd.SetMax(vid._maxFrame)
         self.b_TrimEnd.SetValue(vid.endFrame)
-        self.b_speed.SetValue(vid.speed)
         self.b_cropOffset.SetValue(vid.offset)
         self.b_zoom.SetValue(vid.zoom)
-        self.b_red.SetValue(midas.redMatte)
-
+        self.b_colormap.SetValue(depth.colormap)
 
         #tweak the interaction behavior
         self.b_zoom.SetIncrement(5)
@@ -348,7 +358,7 @@ class settings(layouts.VideoSettings):
         
     def updateTrim( self, event ):
         global vid
-        #refresh the images, if the need to be updated
+        #refresh the images, if they need to be updated
         if self.b_TrimStart.GetValue() != vid.startFrame:
             self.i_TrimStart.SetBitmap(vid.trimmerFrame(self.b_TrimStart.GetValue()))
             vid.startFrame = self.b_TrimStart.GetValue()
@@ -358,11 +368,15 @@ class settings(layouts.VideoSettings):
             vid.endFrame = self.b_TrimEnd.GetValue()
 
         #evaluate the selection's length, in seconds.
-        duration = round((vid.endFrame - vid.startFrame) / vid._rate * vid.speed, 2)
+        duration = round((vid.endFrame - vid.startFrame) / 30.0, 2)
         self.t_duration.SetLabelText("Clip Duration: " + str(duration) + "s.")
 
     def updateCrop( self, event ):
         global vid
+        if vid.isSquare() and self.b_zoom.GetValue() == 0:
+            self.b_cropOffset.SetValue(0)
+            return
+
         vid.updateCrop(self.b_cropOffset.GetValue(), self.b_zoom.GetValue())
 
         #refresh images
@@ -376,11 +390,11 @@ class settings(layouts.VideoSettings):
             return
 
         #save the values into the vid class
-        global vid, midas
-        vid.speed = self.b_speed.GetValue()
+        global vid, depth
         vid.startFrame = self.b_TrimStart.GetValue()
         vid.endFrame = self.b_TrimEnd.GetValue()
-        midas.redMatte = self.b_red.GetValue()
+        depth.colormap = self.b_colormap.GetValue()
+        #nnMod.redMatte = self.b_red.GetValue()
 
         self.EndModal(wx.ID_OK)
 
@@ -391,7 +405,7 @@ class exporter(layouts.Exporter):
         layouts.Exporter.__init__(self,parent)
        
         #l.sortData()       
-        data = me.generatePreview()
+        data = QEMeasurement.generatePreview()
         if (len(data) < 1):
             return
         
@@ -424,7 +438,7 @@ class exporter(layouts.Exporter):
         if str.lower(self.b_exportFilename.GetPath()[-5:]) != ".xlsx":
             return
 
-        if (me.writeLog(vid.nicename, self.b_exportFilename.GetPath())):
+        if (QEMeasurement.writeLog(vid.nicename, self.b_exportFilename.GetPath())):
             self.EndModal(wx.ID_OK)
             wx.MessageBox('The file was successfully saved.', 'File Saved.', wx.OK | wx.ICON_INFORMATION)
         else: 

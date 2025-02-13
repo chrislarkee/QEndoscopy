@@ -2,20 +2,109 @@ import cv2
 from wx import Bitmap as wxb
 from PIL import Image
 from os import getcwd
-from numpy import interp, save, zeros
+import numpy as np
+  
+#ML
+import torch
+import torch.nn as nn
 
-try:
-    import torch            #midas
-    import urllib.request   #midas
-    import midas            #hints for Nuitka
-    import midas.midas      #hints for Nuitka
-except:
-    pass
-
-import modules.measurement as me
+import modules.measurement as QEMeasurement
 import modules.depthmap as dm
 
-class MidasSetup:
+class DepthUtilities:
+    class conv_block(nn.Module):
+        def __init__(self, in_c, out_c):
+            super().__init__()
+
+            self.conv1 = nn.Conv2d(in_c, out_c, kernel_size=3, padding=1)
+            self.bn1 = nn.BatchNorm2d(out_c)
+
+            self.conv2 = nn.Conv2d(out_c, out_c, kernel_size=3, padding=1)
+            self.bn2 = nn.BatchNorm2d(out_c)
+
+            self.relu = nn.ReLU()
+
+        def forward(self, inputs):
+            x = self.conv1(inputs)
+            x = self.bn1(x)
+            x = self.relu(x)
+
+            x = self.conv2(x)
+            x = self.bn2(x)
+            x = self.relu(x)
+
+            return x
+
+    class encoder_block(nn.Module):
+        def __init__(self, in_c, out_c):
+            super().__init__()
+
+            self.conv = DepthUtilities.conv_block(in_c, out_c)
+            self.pool = nn.MaxPool2d((2, 2))
+
+        def forward(self, inputs):
+            x = self.conv(inputs)
+            p = self.pool(x)
+
+            return x, p
+
+    class decoder_block(nn.Module):
+        def __init__(self, in_c, out_c):
+            super().__init__()
+
+            self.up = nn.ConvTranspose2d(in_c, out_c, kernel_size=2, stride=2, padding=0)
+            self.conv = DepthUtilities.conv_block(out_c+out_c, out_c)
+
+        def forward(self, inputs, skip):
+            x = self.up(inputs)
+            x = torch.cat([x, skip], dim=1)
+            x = self.conv(x)
+
+            return x
+
+    class build_unet(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+            """ Encoder """
+            self.e1 = DepthUtilities.encoder_block(1, 64)
+            self.e2 = DepthUtilities.encoder_block(64, 128)
+            self.e3 = DepthUtilities.encoder_block(128, 256)
+            self.e4 = DepthUtilities.encoder_block(256, 512)
+
+            """ Bottleneck """
+            self.b = DepthUtilities.conv_block(512, 1024)
+
+            """ Decoder """
+            self.d1 = DepthUtilities.decoder_block(1024, 512)
+            self.d2 = DepthUtilities.decoder_block(512, 256)
+            self.d3 = DepthUtilities.decoder_block(256, 128)
+            self.d4 = DepthUtilities.decoder_block(128, 64)
+
+            """ Classifier """
+            self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)
+
+        def forward(self, inputs):
+            """ Encoder """
+            s1, p1 = self.e1(inputs)
+            s2, p2 = self.e2(p1)
+            s3, p3 = self.e3(p2)
+            s4, p4 = self.e4(p3)
+    
+            """ Bottleneck """
+            b = self.b(p4)
+            """ Decoder """
+            d1 = self.d1(b, s4)
+            d2 = self.d2(d1, s3)
+            d3 = self.d3(d2, s2)
+            d4 = self.d4(d3, s1)
+
+            """ Classifier """
+            outputs = self.outputs(d4)
+
+            return outputs
+
+class Depth:
     def __init__(self, depthmap, vid):
         if depthmap != None:
             self.depthmapEnabled = True
@@ -23,220 +112,80 @@ class MidasSetup:
         else:
             self.depthmapEnabled = False
             self.vid = None
-            #initialize midas
-            #model_type = "DPT_BEiT_L_512"     # MiDaS v3 - Large     (highest accuracy, slowest inference speed)
-            model_type = "DPT_Large"     # MiDaS v3 - Large     (highest accuracy, slowest inference speed)
-            #model_type = "DPT_Hybrid"   # MiDaS v3 - Hybrid    (medium accuracy, medium inference speed)
-            #model_type = "MiDaS_small"  # MiDaS v2.1 - Small   (lowest accuracy, highest inference speed)
-
-            try:
-                self._midas = torch.hub.load('midas', model_type, source='local')
-                self._device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-                self._midas.to(self._device)
-                self._midas.eval()
-
-                midas_transforms = torch.hub.load('midas', "transforms", source='local')
-                if model_type == "DPT_Large" or model_type == "DPT_Hybrid":
-                    self._transform = midas_transforms.dpt_transform
-                else:
-                    self._transform = midas_transforms.small_transform
-            except:
-                pass
+            
+            #initialize Depthmap NN
+            self.model = DepthUtilities.build_unet();
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.model.load_state_dict(torch.load("includes\\model.pth", map_location=self.device, weights_only=True))
+            self.model.eval()
+            self.model.to(self.device)
+            
 
         #parameters to cache
-        self.dataCache = zeros(1)             #a slot for the data cache
-        self.redMatte = True    
-        self.minmax = (0,50)
-        
+        self._maskImage = np.empty(0)
+        self.dataCache = np.zeros(1)             #a slot for the data cache
+        self.minmax = (0,1)
+        self.colormap = True
 
     def processDepth(self, imageCache, guiSize):  
         if self.depthmapEnabled:
             self.dataCache = self._dm.lookupDepth()
             return self.postProcess(guiSize)
         else:
-            pass
-            ##choose a method:
-            #return self._process_old(imageCache, guiSize)
-            ##return self._process_2way(imageCache, guiSize)
-            #return self._process_4way(imageCache, guiSize)
-            #return self._process_accumulate(imageCache, guiSize)
+            nnInput = cv2.cvtColor(imageCache, cv2.COLOR_BGR2GRAY)
+            if nnInput.shape[0] != 720:
+                nnInput = cv2.resize(nnInput,(720,720))
+            nnInput = torch.from_numpy(nnInput[np.newaxis, ...]).float()/255 - 0.5
+            nnInput = nnInput.unsqueeze(1).to(self.device)
+            self.dataCache = self.model(nnInput)
+            self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
 
-    def _process_old(self, imageCache, guiSize):
-        #blurring it filters out the pixel screen
-        imageCache = cv2.GaussianBlur(imageCache,(3,3),0)
+            #modify the data to discard the values outside a circle
+            if self._maskImage.size == 0:
+                self._maskImage = np.full((720, 720), 0.0, dtype=np.float16)
+                cv2.circle(self._maskImage, (360, 360), 355, 1.0, -1, lineType=cv2.LINE_AA)
 
-        #flood fill?
-        #cv2.floodFill(imageCache, None, (1,1), (255, 255, 255))
+            self.dataCache = self.dataCache * self._maskImage
 
-        #the midas function
-        input_batch = self._transform(imageCache).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=imageCache.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-
-        #cache these actual values for analysis later
-        self.dataCache  = prediction.cpu().numpy()
-
-        rightImage = self.postProcess(guiSize)
-        return rightImage
-
-    def _process_2way(self, imageCache, guiSize):       
-        #generate masks
-        if self.redMatte == True:
-            targetSize = int(imageCache.shape[0])
-            mask = zeros((targetSize,targetSize), dtype="uint8")
-            mask = cv2.circle(mask, (int(targetSize/2), int(targetSize/2)), int(targetSize/2 - 1), 255, cv2.FILLED)
-            red  = zeros((targetSize, targetSize, 3), dtype="uint8")
-            red[:] = (70, 68, 148)      #the red color, BGR uint8
-            red = cv2.circle(red, (int(targetSize/2), int(targetSize/2)), int(targetSize/2 - 1), 0, cv2.FILLED)        
-
-            #composite masks
-            imageCache = cv2.bitwise_and(imageCache, imageCache, mask=mask)
-            imageCache = cv2.add( imageCache, red)            
-
-        #blurring it filters out the pixel screen
-        imageCache = cv2.GaussianBlur(imageCache,(3,3),0)
-        #cv2.imshow("Validation", imageCache)
-        
-        #the midas function 1
-        input_batch = self._transform(imageCache).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=imageCache.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        analysis1  = prediction.cpu().numpy()
-
-        ##DOUBLEFLIP##
-        flipped = cv2.rotate(imageCache, cv2.ROTATE_180)
-        input_batch = self._transform(flipped).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=flipped.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        analysis2  = prediction.cpu().numpy()
-        analysis2 = cv2.rotate(analysis2, cv2.ROTATE_180)
-        self.dataCache = cv2.addWeighted(analysis1, 0.5, analysis2, 0.5, 0.0)
-        
-        rightImage = self.postProcess(guiSize)
-        return rightImage
-
-    def _process_4way(self, imageCache, guiSize):       
-        #generate masks
-        if self.redMatte == True:
-            targetSize = int(imageCache.shape[0])
-            mask = zeros((targetSize,targetSize), dtype="uint8")
-            mask = cv2.circle(mask, (int(targetSize/2), int(targetSize/2)), int(targetSize/2 - 1), 255, cv2.FILLED)
-            red = zeros((targetSize, targetSize, 3), dtype="uint8")
-            red[:] = (148, 68, 70)
-            red = cv2.circle(red, (int(targetSize/2), int(targetSize/2)), int(targetSize/2 - 1), 0, cv2.FILLED)        
-
-            #composite masks
-            imageCache = cv2.bitwise_and(imageCache, imageCache, mask=mask)
-            imageCache = cv2.add( imageCache, red)
-
-        #blurring it filters out the pixel screen
-        imageCache = cv2.medianBlur(imageCache, 3)
-        
-        #the midas function 1
-        input_batch = self._transform(imageCache).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=imageCache.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        self.dataCache = prediction.cpu().numpy()
-
-        #the midas function 2
-        flipped = cv2.rotate(imageCache, cv2.ROTATE_90_CLOCKWISE)
-        input_batch = self._transform(flipped).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=flipped.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        newAnalysis  = prediction.cpu().numpy()
-        newAnalysis = cv2.rotate(newAnalysis, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        self.dataCache = cv2.add(self.dataCache, newAnalysis)
-
-        #the midas function 3
-        flipped = cv2.rotate(imageCache, cv2.ROTATE_180)
-        input_batch = self._transform(flipped).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=flipped.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        newAnalysis  = prediction.cpu().numpy()
-        newAnalysis = cv2.rotate(newAnalysis, cv2.ROTATE_180)
-        self.dataCache = cv2.add(self.dataCache, newAnalysis)
-
-        #the midas function 4
-        flipped = cv2.rotate(imageCache, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        input_batch = self._transform(flipped).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=flipped.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        newAnalysis  = prediction.cpu().numpy()
-        newAnalysis = cv2.rotate(newAnalysis, cv2.ROTATE_90_CLOCKWISE)
-        self.dataCache = cv2.add(self.dataCache, newAnalysis)
-        
-        rightImage = self.postProcess(guiSize)
-        return rightImage
-
-    def _process_accumulate(self, imageCache, guiSize):       
-        #generate masks
-        if self.redMatte == True:
-            targetSize = int(imageCache.shape[0])
-            mask = zeros((targetSize,targetSize), dtype="uint8")
-            mask = cv2.circle(mask, (int(targetSize/2), int(targetSize/2)), int(targetSize/2 - 1), 255, cv2.FILLED)
-            red = zeros((targetSize, targetSize, 3), dtype="uint8")
-            red[:] = (148, 68, 70)
-            red = cv2.circle(red, (int(targetSize/2), int(targetSize/2)), int(targetSize/2 - 1), 0, cv2.FILLED)        
-
-            #composite masks
-            imageCache = cv2.bitwise_and(imageCache, imageCache, mask=mask)
-            imageCache = cv2.add( imageCache, red)
-
-        #blurring it filters out the pixel screen
-        imageCache = cv2.medianBlur(imageCache, 3)
-        
-        #the midas function 
-        input_batch = self._transform(imageCache).to(self._device)
-        with torch.no_grad():
-            prediction = self._midas(input_batch)
-            prediction = torch.nn.functional.interpolate(prediction.unsqueeze(1),size=imageCache.shape[:2],mode="bicubic",align_corners=True,).squeeze()
-        newAnalysis  = prediction.cpu().numpy()
-
-        if newAnalysis.shape != self.dataCache.shape:
-            #this triggers reset on first run, and zoom changes!
-            self.dataCache = newAnalysis
-        else:
-            #geometric decay of the previous frame
-            self.dataCache = cv2.addWeighted(newAnalysis, 1.0, self.dataCache, 0.66666, 0)
-        
-        rightImage = self.postProcess(guiSize)
-        return rightImage
+            rightImage = self.postProcess(guiSize)
+            return rightImage
 
     def postProcess(self, guiSize):
-        self.minmax = (round(self.dataCache.min(),3), round(self.dataCache.max(),3))
-        me.currentEntry.minmax = self.minmax    #report this calc to the log
+        self.minmax = (0.0, self.dataCache.max())
+        QEMeasurement.currentEntry.maxDistance = self.minmax    #report this calc to the log
         if self.depthmapEnabled:
             #depth maps are already normalized
             post = self.dataCache.astype('uint8')
         else:
-            post = interp(self.dataCache, (self.minmax[0], self.minmax[1]), (0,254)).astype('uint8')
+            if self.colormap:
+                post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
+            else:
+                post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (0,254)).astype('uint8')
 
         #color it, resize it https://docs.opencv.org/4.x/d3/d50/group__imgproc__colormap.html
-        post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
-        post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)
-        post = me.addOverlay(post)
+        if self.colormap:
+            post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
+            post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)
+        else:
+            
+            post = cv2.cvtColor(post, cv2.COLOR_GRAY2RGB)
+            np.clip(post, 0, 255)
+
+        post = QEMeasurement.addOverlay(post)
 
         post = Image.fromarray(post).resize((guiSize, guiSize))
         finalImage = wxb.FromBuffer(guiSize, guiSize, post.tobytes())
         return finalImage
-  
-    def clearAccumulator(self):
-        self.dataCache = zeros(1)
 
     def exportImage(self, filename):
         if str.lower(filename[-3:]) == "npy":
-            save("exports//" + filename, self.dataCache)
+            np.save("exports//" + filename, self.dataCache)
         else:
-            post = interp(self.dataCache, (self.dataCache.min(), self.dataCache.max()), (0,254)).astype('uint8')
-            post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
+            post = np.interp(self.dataCache, (0.0, self.dataCache.max()), (0,254)).astype('uint8')
+            if self.colormap:
+                post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
             if str.lower(filename[-3:]) == "png":
                 cv2.imwrite("exports//" + filename, post, [int(cv2.IMWRITE_PNG_COMPRESSION), 6])
             elif str.lower(filename[-3:]) == "jpg":
                 cv2.imwrite("exports//" + filename, post, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
