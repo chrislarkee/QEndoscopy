@@ -15,7 +15,8 @@ _entryCounter = -1
 overlayEnabled = False
 _overlayImage = None
 framerate = 29.97
-_previouspoint = None
+_previousPoint = ()
+_previousPoint3D = ()
 
 csv = None
 
@@ -130,6 +131,21 @@ def startup(filename):
     else:
         csv = None
 
+def pickedContour(contours, point):
+    if len(contours) == 0:
+        return -1
+    if len(contours) == 1:
+        return 0
+
+    selectedContour = 0    
+    for i in range(0, len(contours)):
+        testPoint = cv2.pointPolygonTest(contours[i], point, False)
+        if testPoint == 0:
+            #'0' means the point is on the contour's perimeter.
+            selectedContour = i
+            
+    return selectedContour
+
 def selectCenterContour(contours):
     if len(contours) == 0:
         return -1
@@ -145,7 +161,7 @@ def selectCenterContour(contours):
         return selectedContour
 
 #this input is the b&w depth map
-def updateOverlayCross(depthmap, threshold):
+def updateOverlayCross(depthmap, threshold, point):
     global _overlayImage, currentEntry
     #calculate the threshold    
     ret, thresholdImg = cv2.threshold(depthmap, threshold, depthmap.max(), cv2.THRESH_BINARY_INV)
@@ -155,30 +171,70 @@ def updateOverlayCross(depthmap, threshold):
     thresholdImg = thresholdImg.astype('uint8')
     contours,hierarchy = cv2.findContours(thresholdImg, 1, 2)
 
-    #which contour is the biggest?
-    idealContour = selectCenterContour(contours) 
+    if point == None:
+        #if no point is selected, choose the biggest one
+        idealContour = selectCenterContour(contours) 
+    else:
+        #if the image was clicked, select the contour that User clicked on
+        idealContour = pickedContour(contours, point) 
 
     #prepare the overlay Image
     _overlayImage = np.zeros((depthmap.shape[0],depthmap.shape[1],3), dtype="uint8")
     _overlayImage = cv2.drawContours(_overlayImage, contours, idealContour, (0, 215, 60), 2, cv2.LINE_AA)
 
     #recordData
-    currentEntry.distance = round(threshold,3)
+    currentEntry.distance = str(round(threshold,3))
 
     area = cv2.contourArea(contours[idealContour])
     currentEntry.areaPX = round(area,1)    
     currentEntry.areaMM = round(Lensmath.convertArea(area, threshold), 4)
     
         
-def updateOverlayLine(depthMap, mouseCoord):
-    pass
+def updateOverlayLine(depthmap, point):
+    global _overlayImage, currentEntry, _previousPoint, _previousPoint3D
+
+    #prepare the points to compare    
+    zDepth = depthmap[point[1],point[0]].item()
+    currentPoint3D = Lensmath.convertPoint(point, zDepth)
+    #prevent the first run from having errors
+    if len(_previousPoint) == 0:            
+            _previousPoint = point
+            _previousPoint3D = currentPoint3D
+
+    #prepare the overlay Image
+    _overlayImage = np.zeros((depthmap.shape[0],depthmap.shape[1],3), dtype="uint8")
+    color1 = (255, 255, 255)
+    color2 = (50, 50, 50)
+    
+    cv2.drawMarker(_overlayImage, point, color2, cv2.MARKER_SQUARE , 25, 2)
+    cv2.drawMarker(_overlayImage, _previousPoint, color2, cv2.MARKER_SQUARE , 25, 2)
+    cv2.line(_overlayImage, point, _previousPoint, color1, 2, cv2.LINE_AA)
+    
+    #outputImg = cv2.addWeighted(bgImage, 1.0, _overlayImage, 0.85, 0)
+    #np.clip(outputImg, 0, 255, outputImg)
+    
+    #recordData
+    distance = np.linalg.norm(np.array(_previousPoint3D) - np.array(currentPoint3D)).item()
+    currentEntry.areaPX = "None"
+    currentEntry.areaMM = "None"
+    if currentPoint3D[2] < 0.0001:
+        currentEntry.distance = "Unavailable"
+    else:
+        currentEntry.distance = str(round(distance,4))
+    _previousPoint = point
+    _previousPoint3D = currentPoint3D
+
+def getCoordinate():
+    clean3D = f"({round(_previousPoint3D[0],4)}, {round(_previousPoint3D[1],4)}, {round(_previousPoint3D[2],4)})"
+    output = f"2D: {str(_previousPoint)}\n3D: {clean3D}"
+    return output;
 
 def addOverlay(image):
     global _overlayImage
     if overlayEnabled == False:
         return image
     newImage = cv2.add(image, _overlayImage)
-    newImage = np.clip(newImage, 0, 255)
+    np.clip(newImage, 0, 255, newImage)
     #cv2.imshow('image', newImage)    
     return newImage
 

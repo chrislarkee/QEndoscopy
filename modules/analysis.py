@@ -2,6 +2,7 @@ import cv2
 from wx import Bitmap as wxb
 from PIL import Image
 from os import getcwd
+from os.path import isfile
 import numpy as np
   
 #ML
@@ -107,28 +108,31 @@ class DepthUtilities:
 class Depth:
     def __init__(self, depthmap, vid):
         if depthmap != None:
-            self.depthmapEnabled = True
+            self.bakedDepthmap = True
             self._dm = dm.DepthmapSetup(depthmap, vid)
         else:
-            self.depthmapEnabled = False
+            self.bakedDepthmap = False
             self.vid = None
             
             #initialize Depthmap NN
             self.model = DepthUtilities.build_unet();
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.model.load_state_dict(torch.load("includes\\model.pth", map_location=self.device, weights_only=True))
+            if isfile("includes\\model.pth"):
+                self.model.load_state_dict(torch.load("includes\\model.pth", map_location=self.device, weights_only=True))
+            else:
+                self.model.load_state_dict(torch.load("model.pth", map_location=self.device, weights_only=True))
             self.model.eval()
             self.model.to(self.device)
             
 
         #parameters to cache
-        self._maskImage = np.empty(0)
+        self._maskData = np.empty(0)
         self.dataCache = np.zeros(1)             #a slot for the data cache
         self.minmax = (0,1)
         self.colormap = True
 
     def processDepth(self, imageCache, guiSize):  
-        if self.depthmapEnabled:
+        if self.bakedDepthmap:
             self.dataCache = self._dm.lookupDepth()
             return self.postProcess(guiSize)
         else:
@@ -140,36 +144,39 @@ class Depth:
             self.dataCache = self.model(nnInput)
             self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
 
-            #modify the data to discard the values outside a circle
-            if self._maskImage.size == 0:
-                self._maskImage = np.full((720, 720), 0.0, dtype=np.float16)
-                cv2.circle(self._maskImage, (360, 360), 355, 1.0, -1, lineType=cv2.LINE_AA)
+            if self._maskData.size == 0:
+                #draw the circle if it hasn't been drawn yet
+                self._maskData = np.full((720, 720), 0.0, dtype=np.float16)
+                cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
 
-            self.dataCache = self.dataCache * self._maskImage
+            #modify the data(!) to flatten the values outside a circle
+            self.dataCache = self.dataCache * self._maskData
 
             rightImage = self.postProcess(guiSize)
             return rightImage
 
     def postProcess(self, guiSize):
         self.minmax = (0.0, self.dataCache.max())
-        QEMeasurement.currentEntry.maxDistance = self.minmax    #report this calc to the log
-        if self.depthmapEnabled:
+        QEMeasurement.currentEntry.maxDistance = self.minmax[1]    #report this calc to the log
+        if self.bakedDepthmap:
             #depth maps are already normalized
             post = self.dataCache.astype('uint8')
         else:
             if self.colormap:
                 post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             else:
-                post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (0,254)).astype('uint8')
+                post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')
 
         #color it, resize it https://docs.opencv.org/4.x/d3/d50/group__imgproc__colormap.html
         if self.colormap:
             post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
-            post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)
-        else:
-            
+            post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)            
+            #black circle matte
+            circleMatte = (self._maskData * 255.0).astype('uint8')
+            post = cv2.bitwise_and(post, post, mask=circleMatte)
+        else:            
             post = cv2.cvtColor(post, cv2.COLOR_GRAY2RGB)
-            np.clip(post, 0, 255)
+            np.clip(post, 0, 254, post)
 
         post = QEMeasurement.addOverlay(post)
 
@@ -181,9 +188,12 @@ class Depth:
         if str.lower(filename[-3:]) == "npy":
             np.save("exports//" + filename, self.dataCache)
         else:
-            post = np.interp(self.dataCache, (0.0, self.dataCache.max()), (0,254)).astype('uint8')
+            post = np.interp(self.dataCache, (0.0, self.dataCache.max()), (0,255)).astype('uint8')
             if self.colormap:
                 post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
+                #black circle matte
+                circleMatte = (self._maskData * 255.0).astype('uint8')
+                post = cv2.bitwise_and(post, post, mask=circleMatte)
             if str.lower(filename[-3:]) == "png":
                 cv2.imwrite("exports//" + filename, post, [int(cv2.IMWRITE_PNG_COMPRESSION), 6])
             elif str.lower(filename[-3:]) == "jpg":

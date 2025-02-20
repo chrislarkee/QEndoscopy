@@ -23,7 +23,7 @@ class EndoVideo:
         self.endFrame = int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT))      #it's trimmable
         self.offset = 0
         self.zoom = 0
-        self.guiSize = 400
+        self.guiSize = 500
 
         #parameters whose values we can automatically determine
         #https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
@@ -32,14 +32,14 @@ class EndoVideo:
         self._rate = self.vid.get(cv2.CAP_PROP_FPS)                     #the native rate. never changes.        
         QEMeasurement.framerate = self._rate
         self._maxFrame = self.endFrame                                  #the end of the file        
-        res = (int(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        self.res = (int(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         if self.endFrame == 1:  #hack to determine if he have a video or a photo
             self._singleImage = cv2.imread(self._path)
-            res = (self._singleImage.shape[1], self._singleImage.shape[0])   
-        self._crop = (0, res[1], int(res[0] / 2 - res[1] / 2), int(res[0] / 2 + res[1] / 2))  
+            self.res = (self._singleImage.shape[1], self._singleImage.shape[0])   
+        self._crop = (0, self.res[1], int(self.res[0] / 2 - self.res[1] / 2), int(self.res[0] / 2 + self.res[1] / 2))  
         
     def isSquare(self):
-        if self.imageCache.shape[0] == self.imageCache.shape[1]:
+        if self.res[0] == self.res[1]:
             return True
         else:
             return False
@@ -107,11 +107,10 @@ class EndoVideo:
     def updateCrop(self, offset, zoom):
         self.offset = offset
         self.zoom = zoom
-        res = (int(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         self._crop = (int(0 + zoom),
-            int(res[1] - zoom), 
-            int(res[0] / 2 - res[1] / 2) - offset + zoom,
-            int(res[0] / 2 + res[1] / 2) - offset - zoom) 
+            int(self.res[1] - zoom), 
+            int(self.res[0] / 2 - self.res[1] / 2) - offset + zoom,
+            int(self.res[0] / 2 + self.res[1] / 2) - offset - zoom) 
 
     def exportImage(self, filename):
         #cv2.imwrite automatically converts it out of the BGR colorspace, so no conversion is needed.

@@ -193,7 +193,7 @@ class main(layouts.MainInterface):
         if vid == None:
             return
         QEMeasurement.overlayEnabled = True
-        QEMeasurement.updateOverlayCross(depth.dataCache, float(self.m_thresholdSlider.GetValue()) / 100.0)
+        QEMeasurement.updateOverlayCross(depth.dataCache, float(self.m_thresholdSlider.GetValue()) / 100.0, None)
         #REFRESH
         self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
         self.i_Image.SetBitmap(vid.refreshAnnoation())
@@ -283,6 +283,7 @@ class main(layouts.MainInterface):
             return
         #print(event.GetId())       #does it matter which one we clicked?
 
+        QEMeasurement.overlayEnabled = True
         mouseCoords = event.GetPosition()
         targetCoords = (int(mouseCoords[0] / vid.guiSize * 720), int(mouseCoords[1] / vid.guiSize * 720))
         
@@ -290,22 +291,22 @@ class main(layouts.MainInterface):
             #cross section
             threshold = depth.dataCache[targetCoords[1]][targetCoords[0]]
             self.m_thresholdSlider.SetValue(int(threshold * 100))
-            QEMeasurement.updateOverlayCross(depth.dataCache, threshold)            
+            QEMeasurement.updateOverlayCross(depth.dataCache, threshold, targetCoords)            
             status = f"Distance: {QEMeasurement.currentEntry.distance}\nArea (px): {QEMeasurement.currentEntry.areaPX}\nArea (mm^2): {QEMeasurement.currentEntry.areaMM}"
             self.t_statusText.SetValue(status)
         elif self.b_mtool.GetCurrentSelection() == 1: 
             #line
-            QEMeasurement.updateOverlayLine(depth.dataCache, (targetCoords[1],targetCoords[0]))
-            #self.t_statusText.SetValue(status)
+            QEMeasurement.updateOverlayLine(depth.dataCache, (targetCoords[0],targetCoords[1]))
+            status = f"{QEMeasurement.getCoordinate()}\nDistance: {QEMeasurement.currentEntry.distance}"
+            self.t_statusText.SetValue(status)
         elif self.b_mtool.GetCurrentSelection() == 2:
             #polygon
+            QEMeasurement.overlayEnabled = False
             pass
 
-        #REFRESH
-        QEMeasurement.overlayEnabled = True
+        #REFRESH        
         self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
-        self.i_Image.SetBitmap(vid.refreshAnnoation())
-        
+        self.i_Image.SetBitmap(vid.refreshAnnoation())        
         #self.t_export.SetValue(measurement.report())
 
 
