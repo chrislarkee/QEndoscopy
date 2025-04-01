@@ -292,12 +292,12 @@ class main(layouts.MainInterface):
             threshold = depth.dataCache[targetCoords[1]][targetCoords[0]]
             self.m_thresholdSlider.SetValue(int(threshold * 100))
             QEMeasurement.updateOverlayCross(depth.dataCache, threshold, targetCoords)            
-            status = f"Distance: {QEMeasurement.currentEntry.distance}\nArea (px): {QEMeasurement.currentEntry.areaPX}\nArea (mm^2): {QEMeasurement.currentEntry.areaMM}"
+            status = f"Distance: {QEMeasurement.currentEntry.distance} cm\nArea: {QEMeasurement.currentEntry.areaPX} px\nArea: {QEMeasurement.currentEntry.areaMM} cm^2"
             self.t_statusText.SetValue(status)
         elif self.b_mtool.GetCurrentSelection() == 1: 
             #line
             QEMeasurement.updateOverlayLine(depth.dataCache, (targetCoords[0],targetCoords[1]))
-            status = f"{QEMeasurement.getCoordinate()}\nDistance: {QEMeasurement.currentEntry.distance}"
+            status = f"{QEMeasurement.getCoordinate()}\nDistance: {QEMeasurement.currentEntry.distance} cm"
             self.t_statusText.SetValue(status)
         elif self.b_mtool.GetCurrentSelection() == 2:
             #polygon

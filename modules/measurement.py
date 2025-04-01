@@ -63,6 +63,7 @@ class Lensmath:
     FOV          = np.radians(125.0)
     SENSOR_WIDTH = 3.6      #mm. square sensor.
     FOCAL_LENGTH = 2.5      #mm
+    DEPTH_CALIB = 0.918     #adjustment factor for depth (from testing)
     
     @classmethod
     def convertPoint(self, pixel_coords, depth):    
@@ -87,9 +88,10 @@ class Lensmath:
         phi = np.arctan2(y, x)
 
         # Convert spherical coordinates to Cartesian 3D coordinates
-        X = depth * np.sin(theta) * np.cos(phi)
-        Y = depth * np.sin(theta) * np.sin(phi)
-        Z = depth * np.cos(theta)
+        trueDepth = depth * self.DEPTH_CALIB
+        X = trueDepth * np.sin(theta) * np.cos(phi)
+        Y = trueDepth * np.sin(theta) * np.sin(phi)
+        Z = trueDepth * np.cos(theta)
 
         return (X, Y, Z)
     
@@ -105,9 +107,14 @@ class Lensmath:
         angular_area = area * (theta_per_pixel ** 2)
 
         # Convert angular area to real-world area (approximation)
-        real_area = (depth ** 2) * angular_area
+        trueDepth = depth * self.DEPTH_CALIB
+        real_area = (trueDepth ** 2) * angular_area
 
         return real_area
+    
+    @classmethod    
+    def convertDistance(self, depth):
+        return depth * self.DEPTH_CALIB
 
 def startup(filename):
     global _database, currentEntry, _entryCounter
@@ -183,11 +190,11 @@ def updateOverlayCross(depthmap, threshold, point):
     _overlayImage = cv2.drawContours(_overlayImage, contours, idealContour, (0, 215, 60), 2, cv2.LINE_AA)
 
     #recordData
-    currentEntry.distance = str(round(threshold,3))
+    currentEntry.distance = str(round(Lensmath.convertDistance(threshold),3))
 
     area = cv2.contourArea(contours[idealContour])
     currentEntry.areaPX = round(area,1)    
-    currentEntry.areaMM = round(Lensmath.convertArea(area, threshold), 4)
+    currentEntry.areaMM = round(Lensmath.convertArea(area, zDepth), 4)
     
         
 def updateOverlayLine(depthmap, point):
