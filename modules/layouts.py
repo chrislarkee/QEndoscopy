@@ -109,7 +109,7 @@ class MainInterface ( wx.Frame ):
 
         s_grid = wx.GridSizer( 0, 1, 0, 0 )
 
-        self.b_open = wx.Button( s_ToolsArea1.GetStaticBox(), wx.ID_ANY, u"Open Video", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_open = wx.Button( s_ToolsArea1.GetStaticBox(), wx.ID_ANY, u"Open Image", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_open.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_OPEN, wx.ART_HELP_BROWSER ) )
         s_grid.Add( self.b_open, 0, wx.ALL|wx.EXPAND, 5 )
@@ -146,7 +146,7 @@ class MainInterface ( wx.Frame ):
 
         gSizer4 = wx.GridSizer( 0, 2, 0, 0 )
 
-        self.m_staticText8 = wx.StaticText( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Current Tool:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
+        self.m_staticText8 = wx.StaticText( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Current Tool: ", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
         self.m_staticText8.Wrap( -1 )
 
         gSizer4.Add( self.m_staticText8, 0, wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5 )
@@ -513,7 +513,7 @@ class Exporter ( wx.Dialog ):
         self.grid.SetColLabelValue( 4, u"Threshold" )
         self.grid.SetColLabelValue( 5, u"Distance" )
         self.grid.SetColLabelValue( 6, u"Area (px)" )
-        self.grid.SetColLabelValue( 7, u"Area (mm^2)" )
+        self.grid.SetColLabelValue( 7, u"Area (cm^2)" )
         self.grid.SetColLabelValue( 8, u"CameraPos" )
         self.grid.SetColLabelSize( wx.grid.GRID_AUTOSIZE )
         self.grid.SetColLabelAlignment( wx.ALIGN_CENTER, wx.ALIGN_CENTER )

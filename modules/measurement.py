@@ -184,6 +184,9 @@ def updateOverlayCross(depthmap, threshold, point):
     else:
         #if the image was clicked, select the contour that User clicked on
         idealContour = pickedContour(contours, point) 
+        
+    if idealContour == -1:
+        return
 
     #prepare the overlay Image
     _overlayImage = np.zeros((depthmap.shape[0],depthmap.shape[1],3), dtype="uint8")
@@ -194,7 +197,7 @@ def updateOverlayCross(depthmap, threshold, point):
 
     area = cv2.contourArea(contours[idealContour])
     currentEntry.areaPX = round(area,1)    
-    currentEntry.areaMM = round(Lensmath.convertArea(area, zDepth), 4)
+    currentEntry.areaMM = round(Lensmath.convertArea(area, threshold), 4)
     
         
 def updateOverlayLine(depthmap, point):
@@ -234,7 +237,7 @@ def updateOverlayLine(depthmap, point):
 def getCoordinate():
     clean3D = f"({round(_previousPoint3D[0],4)}, {round(_previousPoint3D[1],4)}, {round(_previousPoint3D[2],4)})"
     output = f"2D: {str(_previousPoint)}\n3D: {clean3D}"
-    return output;
+    return output
 
 def addOverlay(image):
     global _overlayImage

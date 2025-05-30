@@ -270,6 +270,17 @@ class main(layouts.MainInterface):
         #launch the PDF of the documentation using the system default PDF loader
         startfile("QEndoscopy Documentation.pdf")
 
+    def copyText(self, event):
+        if self.t_statusText.GetValue() == "":
+            return
+        
+        textPayload = wx.TextDataObject(text=self.t_statusText.GetValue())
+        if wx.TheClipboard.Open():
+            wx.TheClipboard.SetData(textPayload)
+            wx.TheClipboard.Close()
+        else:
+            wx.MessageBox("Unable to open the clipboard", "Error")
+
     def changeTool(self, event):
         self.clearMeasurements(event)
         

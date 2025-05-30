@@ -142,15 +142,7 @@ class Depth:
             nnInput = torch.from_numpy(nnInput[np.newaxis, ...]).float()/255 - 0.5
             nnInput = nnInput.unsqueeze(1).to(self.device)
             self.dataCache = self.model(nnInput)
-            self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
-
-            if self._maskData.size == 0:
-                #draw the circle if it hasn't been drawn yet
-                self._maskData = np.full((720, 720), 0.0, dtype=np.float16)
-                cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
-
-            #modify the data(!) to flatten the values outside a circle
-            self.dataCache = self.dataCache * self._maskData
+            self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()            
 
             rightImage = self.postProcess(guiSize)
             return rightImage
@@ -158,6 +150,7 @@ class Depth:
     def postProcess(self, guiSize):
         self.minmax = (0.0, self.dataCache.max())
         QEMeasurement.currentEntry.maxDistance = self.minmax[1]    #report this calc to the log
+        
         if self.bakedDepthmap:
             #depth maps are already normalized
             post = self.dataCache.astype('uint8')
@@ -166,14 +159,22 @@ class Depth:
                 post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             else:
                 post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')
+                
+        
+        #create the circle if it hasn't been drawn yet
+        if self._maskData.size == 0:                
+                self._maskData = np.full((720, 720), 0.0, dtype=np.uint8)
+                cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
+
+        #apply the circle mask by flattening the values with the maskdata
+        #post = post * self._maskData  
 
         #color it, resize it https://docs.opencv.org/4.x/d3/d50/group__imgproc__colormap.html
         if self.colormap:
-            post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
-            post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)            
             #black circle matte
-            circleMatte = (self._maskData * 255.0).astype('uint8')
-            post = cv2.bitwise_and(post, post, mask=circleMatte)
+            post = post * self._maskData  
+            post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
+            post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)
         else:            
             post = cv2.cvtColor(post, cv2.COLOR_GRAY2RGB)
             np.clip(post, 0, 254, post)
