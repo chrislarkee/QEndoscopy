@@ -197,7 +197,7 @@ class main(layouts.MainInterface):
         #REFRESH
         self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
         self.i_Image.SetBitmap(vid.refreshAnnoation())
-        status = f"Distance: {QEMeasurement.currentEntry.distance}\nArea (px): {QEMeasurement.currentEntry.areaPX}\nArea (mm^2): {QEMeasurement.currentEntry.areaMM}"
+        status = f"Distance (cm):\t{QEMeasurement.currentEntry.distance}\nArea (px):\t\t{QEMeasurement.currentEntry.areaPX}\nArea (cm^2):\t{QEMeasurement.currentEntry.areaMM}"
         self.t_statusText.SetValue(status)
 
 

@@ -95,22 +95,33 @@ class Lensmath:
 
         return (X, Y, Z)
     
-    @classmethod
-    def convertArea(self, area, depth):
-        # Compute the effective focal length in pixels
-        f_px = self.FOCAL_LENGTH * (self.IMG_SIZE / self.SENSOR_WIDTH)
+    @classmethod    
+    def calculateArea(self, contour, depth):
+        newContour = contour.copy().astype('float32')
+        for p in range(0, newContour.shape[0]):
+            coord = (contour[p,0,0].item(), contour[p,0,1].item())
+            newPoint = Lensmath.convertPoint(coord, depth)[:2]
+            newContour[p,0,0] = newPoint[0]
+            newContour[p,0,1] = newPoint[1]
 
-        # Approximate the field angle per pixel using equisolid projection
-        theta_per_pixel = (self.FOV / 2) / (f_px / 2)  # Approximate small-angle field resolution
+        return cv2.contourArea(newContour)
 
-        # Convert pixel area to angular area
-        angular_area = area * (theta_per_pixel ** 2)
+    #@classmethod
+    #def convertArea(self, area, depth):
+    #     # Compute the effective focal length in pixels
+    #     f_px = self.FOCAL_LENGTH * (self.IMG_SIZE / self.SENSOR_WIDTH)
 
-        # Convert angular area to real-world area (approximation)
-        trueDepth = depth * self.DEPTH_CALIB
-        real_area = (trueDepth ** 2) * angular_area
+    #     # Approximate the field angle per pixel using equisolid projection
+    #     theta_per_pixel = (self.FOV / 2) / (f_px / 2)  # Approximate small-angle field resolution
 
-        return real_area
+    #     # Convert pixel area to angular area
+    #     angular_area = area * (theta_per_pixel ** 2)
+
+    #     # Convert angular area to real-world area (approximation)
+    #     trueDepth = depth * self.DEPTH_CALIB
+    #     real_area = (trueDepth ** 2) * angular_area
+
+    #     return real_area
     
     @classmethod    
     def convertDistance(self, depth):
@@ -190,14 +201,15 @@ def updateOverlayCross(depthmap, threshold, point):
 
     #prepare the overlay Image
     _overlayImage = np.zeros((depthmap.shape[0],depthmap.shape[1],3), dtype="uint8")
-    _overlayImage = cv2.drawContours(_overlayImage, contours, idealContour, (0, 215, 60), 2, cv2.LINE_AA)
+    cv2.drawContours(_overlayImage, contours, -1, (6, 51, 19), 2, cv2.LINE_AA)
+    cv2.drawContours(_overlayImage, contours, idealContour, (0, 215, 60), 2, cv2.LINE_AA)
 
     #recordData
     currentEntry.distance = str(round(Lensmath.convertDistance(threshold),3))
+    area = Lensmath.calculateArea(contours[idealContour], threshold)
 
-    area = cv2.contourArea(contours[idealContour])
-    currentEntry.areaPX = round(area,1)    
-    currentEntry.areaMM = round(Lensmath.convertArea(area, threshold), 4)
+    currentEntry.areaPX = round(cv2.contourArea(contours[idealContour]), 1)    
+    currentEntry.areaMM = round(area, 4)
     
         
 def updateOverlayLine(depthmap, point):
