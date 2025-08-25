@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import wx
+from sys import argv
 
 #frames
 from modules.main import main
@@ -12,4 +13,9 @@ if __name__ == '__main__':
     app = wx.App(False)
     frame = main(None)
     frame.Show()
+    
+    #if a video file is passed as an argument, load it automatically
+    if len(argv) > 1:
+        frame.openVideo(event=wx.IdleEvent(), autoload=argv[1])
+       
     app.MainLoop()

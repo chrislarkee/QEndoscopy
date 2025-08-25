@@ -4,7 +4,7 @@ from PIL import Image, ImageGrab
 from math import floor
 import os.path as p
 
-import modules.measurement as QEMeasurement
+#import modules.measurement as QEMeasurement
 
 class EndoVideo:
     def __init__(self, filename: str):
@@ -30,7 +30,7 @@ class EndoVideo:
         self.nicename = str(p.basename(self._path)).replace(".","_")
         self.imageCache = None
         self._rate = self.vid.get(cv2.CAP_PROP_FPS)                     #the native rate. never changes.        
-        QEMeasurement.framerate = self._rate
+        #QEMeasurement.framerate = self._rate
         self._maxFrame = self.endFrame                                  #the end of the file        
         self.res = (int(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         if self.endFrame == 1:  #hack to determine if he have a video or a photo
@@ -73,7 +73,7 @@ class EndoVideo:
 
     def refreshAnnoation(self):
         leftImage = cv2.cvtColor(self.imageCache, cv2.COLOR_BGR2RGB)
-        leftImage = QEMeasurement.addOverlay(leftImage)
+        #leftImage = QEMeasurement.addOverlay(leftImage)
         leftImage = Image.fromarray(leftImage).resize((self.guiSize ,self.guiSize))                     
         leftImage = wxb.FromBuffer(self.guiSize, self.guiSize, leftImage.tobytes())       
         return leftImage
@@ -115,9 +115,9 @@ class EndoVideo:
     def exportImage(self, filename):
         #cv2.imwrite automatically converts it out of the BGR colorspace, so no conversion is needed.
         if str.lower(filename[-3:]) == "png":
-            cv2.imwrite("exports//" + filename, self.imageCache, [int(cv2.IMWRITE_PNG_COMPRESSION), 6])
+            cv2.imwrite(filename, self.imageCache, [int(cv2.IMWRITE_PNG_COMPRESSION), 6])
         elif str.lower(filename[-3:]) == "jpg":
-            cv2.imwrite("exports//" + filename, self.imageCache, [int(cv2.IMWRITE_JPEG_QUALITY), 98])
+            cv2.imwrite(filename, self.imageCache, [int(cv2.IMWRITE_JPEG_QUALITY), 98])
 
 def takeScreenshot(bbox, filepath):
     screenshot = ImageGrab.grab(bbox)

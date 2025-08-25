@@ -8,7 +8,7 @@
 ###########################################################################
 
 import wx
-#import wx.xrc
+import wx.xrc
 import wx.grid
 
 ###########################################################################
@@ -18,7 +18,7 @@ import wx.grid
 class MainInterface ( wx.Frame ):
 
     def __init__( self, parent ):
-        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = u"Quantitative Endoscopy", pos = wx.DefaultPosition, size = wx.Size( 1400,950 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = u"Quantitative Endoscopy", pos = wx.DefaultPosition, size = wx.Size( 1600,1000 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
 
         self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
         self.SetForegroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_WINDOWTEXT ) )
@@ -26,191 +26,206 @@ class MainInterface ( wx.Frame ):
 
         s_Main = wx.BoxSizer( wx.VERTICAL )
 
-        self.p_StatusBar = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-        self.p_StatusBar.SetBackgroundColour( wx.Colour( 56, 56, 56 ) )
-
         s_StatusBar = wx.BoxSizer( wx.HORIZONTAL )
 
-        self.t_status = wx.StaticText( self.p_StatusBar, wx.ID_ANY, u"Open a video to begin.", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_CENTER_HORIZONTAL )
-        self.t_status.Wrap( -1 )
+        self.b_open = wx.Button( self, wx.ID_ANY, u"Open...", wx.DefaultPosition, wx.DefaultSize, 0 )
 
-        self.t_status.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
-        self.t_status.SetForegroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BTNHIGHLIGHT ) )
+        self.b_open.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_OPEN, wx.ART_HELP_BROWSER ) )
+        s_StatusBar.Add( self.b_open, 0, wx.ALL|wx.EXPAND, 5 )
 
-        s_StatusBar.Add( self.t_status, 1, wx.ALL|wx.EXPAND, 5 )
+        self.b_openExporter = wx.Button( self, wx.ID_ANY, u"Export...", wx.DefaultPosition, wx.DefaultSize, 0 )
+
+        self.b_openExporter.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_SAVE, wx.ART_HELP_BROWSER ) )
+        self.b_openExporter.Enable( False )
+
+        s_StatusBar.Add( self.b_openExporter, 0, wx.ALL|wx.EXPAND, 5 )
+
+        self.b_openViewer = wx.Button( self, wx.ID_ANY, u"View Measurements", wx.DefaultPosition, wx.DefaultSize, 0 )
+
+        self.b_openViewer.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_LIST_VIEW, wx.ART_TOOLBAR ) )
+        self.b_openViewer.Enable( False )
+
+        s_StatusBar.Add( self.b_openViewer, 0, wx.ALL|wx.EXPAND, 5 )
 
 
-        self.p_StatusBar.SetSizer( s_StatusBar )
-        self.p_StatusBar.Layout()
-        s_StatusBar.Fit( self.p_StatusBar )
-        s_Main.Add( self.p_StatusBar, 0, wx.EXPAND, 5 )
+        s_StatusBar.Add( ( 0, 0), 1, wx.EXPAND, 5 )
 
-        self.p_TopArea = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-        self.p_TopArea.SetForegroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_WINDOW ) )
-        self.p_TopArea.SetBackgroundColour( wx.Colour( 56, 56, 56 ) )
+        self.b_help = wx.Button( self, wx.ID_ANY, u"Help", wx.DefaultPosition, wx.DefaultSize, 0 )
 
-        s_TopArea = wx.BoxSizer( wx.VERTICAL )
+        self.b_help.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_QUESTION, wx.ART_BUTTON ) )
+        s_StatusBar.Add( self.b_help, 0, wx.ALL|wx.EXPAND, 5 )
 
-        s_Images = wx.BoxSizer( wx.HORIZONTAL )
 
-        s_Images.SetMinSize( wx.Size( 220,100 ) )
+        s_Main.Add( s_StatusBar, 0, wx.EXPAND, 5 )
 
-        s_Images.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+        s_mainarea = wx.FlexGridSizer( 0, 2, 5, 5 )
+        s_mainarea.AddGrowableCol( 0 )
+        s_mainarea.AddGrowableCol( 1 )
+        s_mainarea.AddGrowableRow( 0 )
+        s_mainarea.SetFlexibleDirection( wx.HORIZONTAL )
+        s_mainarea.SetNonFlexibleGrowMode( wx.FLEX_GROWMODE_SPECIFIED )
 
-        self.i_Image = wx.StaticBitmap( self.p_TopArea, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.Size( 300,300 ), wx.FULL_REPAINT_ON_RESIZE )
+        self.i_Image = wx.StaticBitmap( self, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.Size( 10,10 ), wx.FULL_REPAINT_ON_RESIZE )
         self.i_Image.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BACKGROUND ) )
 
-        s_Images.Add( self.i_Image, 0, wx.EXPAND|wx.SHAPED, 2 )
+        s_mainarea.Add( self.i_Image, 1, wx.ALIGN_CENTER_HORIZONTAL|wx.SHAPED, 0 )
 
+        self.vispypanel = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.Size( -1,-1 ), wx.TAB_TRAVERSAL )
+        self.vispypanel.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BACKGROUND ) )
 
-        s_Images.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+        s_mainarea.Add( self.vispypanel, 1, wx.EXPAND, 5 )
 
-        self.i_Depth = wx.StaticBitmap( self.p_TopArea, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.Size( 300,300 ), wx.FULL_REPAINT_ON_RESIZE )
-        self.i_Depth.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BACKGROUND ) )
+        s_leftcontrols = wx.BoxSizer( wx.VERTICAL )
 
-        s_Images.Add( self.i_Depth, 0, wx.EXPAND|wx.SHAPED, 2 )
-
-
-        s_Images.Add( ( 0, 0), 1, wx.EXPAND, 5 )
-
-
-        s_TopArea.Add( s_Images, 1, wx.EXPAND|wx.TOP, 5 )
+        s_videotools = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Imaging Tools" ), wx.VERTICAL )
 
         s_transport = wx.BoxSizer( wx.HORIZONTAL )
 
-        self.b_framePrevious = wx.Button( self.p_TopArea, wx.ID_ANY, u"<", wx.DefaultPosition, wx.Size( 60,-1 ), wx.BU_NOTEXT )
+        self.b_framePrevious = wx.Button( s_videotools.GetStaticBox(), wx.ID_ANY, u"<", wx.DefaultPosition, wx.Size( 60,-1 ), wx.BU_NOTEXT )
 
         self.b_framePrevious.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_GO_BACK, wx.ART_HELP_BROWSER ) )
-        s_transport.Add( self.b_framePrevious, 0, wx.ALL, 5 )
+        s_transport.Add( self.b_framePrevious, 0, 0, 5 )
 
-        self.m_Time = wx.Slider( self.p_TopArea, wx.ID_ANY, 0, 0, 1, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL|wx.SL_VALUE_LABEL )
-        s_transport.Add( self.m_Time, 1, wx.EXPAND, 30 )
+        self.slider_time = wx.Slider( s_videotools.GetStaticBox(), wx.ID_ANY, 0, 0, 1, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL|wx.SL_VALUE_LABEL )
+        s_transport.Add( self.slider_time, 1, wx.EXPAND, 10 )
 
-        self.b_FrameNext = wx.Button( self.p_TopArea, wx.ID_ANY, u">", wx.DefaultPosition, wx.Size( 60,-1 ), wx.BU_NOTEXT )
+        self.b_FrameNext = wx.Button( s_videotools.GetStaticBox(), wx.ID_ANY, u">", wx.DefaultPosition, wx.Size( 60,-1 ), wx.BU_NOTEXT )
 
         self.b_FrameNext.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_GO_FORWARD, wx.ART_HELP_BROWSER ) )
-        s_transport.Add( self.b_FrameNext, 0, wx.ALL, 5 )
+        s_transport.Add( self.b_FrameNext, 0, 0, 5 )
 
 
-        s_TopArea.Add( s_transport, 0, wx.EXPAND, 5 )
+        s_videotools.Add( s_transport, 0, wx.ALL|wx.EXPAND, 5 )
 
+        s_grid1 = wx.GridSizer( 0, 2, 0, 0 )
 
-        self.p_TopArea.SetSizer( s_TopArea )
-        self.p_TopArea.Layout()
-        s_TopArea.Fit( self.p_TopArea )
-        s_Main.Add( self.p_TopArea, 5, wx.EXPAND, 5 )
-
-        s_BottomArea = wx.BoxSizer( wx.HORIZONTAL )
-
-
-        s_BottomArea.Add( ( 0, 0), 1, 0, 5 )
-
-        s_ToolsArea1 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Image Tools" ), wx.HORIZONTAL )
-
-        s_grid = wx.GridSizer( 0, 1, 0, 0 )
-
-        self.b_open = wx.Button( s_ToolsArea1.GetStaticBox(), wx.ID_ANY, u"Open Image", wx.DefaultPosition, wx.DefaultSize, 0 )
-
-        self.b_open.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_OPEN, wx.ART_HELP_BROWSER ) )
-        s_grid.Add( self.b_open, 0, wx.ALL|wx.EXPAND, 5 )
-
-        self.b_playVideo = wx.ToggleButton( s_ToolsArea1.GetStaticBox(), wx.ID_ANY, u"Play/Pause Video", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_playVideo = wx.ToggleButton( s_videotools.GetStaticBox(), wx.ID_ANY, u"Play/Pause Video", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_playVideo.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_GO_FORWARD, wx.ART_MENU ) )
         self.b_playVideo.SetBitmapPressed( wx.ArtProvider.GetBitmap( wx.ART_DELETE, wx.ART_MENU ) )
         self.b_playVideo.Enable( False )
 
-        s_grid.Add( self.b_playVideo, 0, wx.ALL|wx.EXPAND, 5 )
+        s_grid1.Add( self.b_playVideo, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_showSettings = wx.Button( s_ToolsArea1.GetStaticBox(), wx.ID_ANY, u"Video Settings", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_showSettings = wx.Button( s_videotools.GetStaticBox(), wx.ID_ANY, u"Video Settings", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_showSettings.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FIND_AND_REPLACE, wx.ART_HELP_BROWSER ) )
         self.b_showSettings.Enable( False )
 
-        s_grid.Add( self.b_showSettings, 0, wx.ALL|wx.EXPAND, 5 )
-
-        self.b_exportImage = wx.Button( s_ToolsArea1.GetStaticBox(), wx.ID_ANY, u"Export Images", wx.DefaultPosition, wx.DefaultSize, 0 )
-
-        self.b_exportImage.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_SAVE, wx.ART_HELP_BROWSER ) )
-        self.b_exportImage.Enable( False )
-
-        s_grid.Add( self.b_exportImage, 0, wx.ALL|wx.EXPAND, 5 )
+        s_grid1.Add( self.b_showSettings, 0, wx.ALL|wx.EXPAND, 5 )
 
 
-        s_ToolsArea1.Add( s_grid, 0, wx.EXPAND, 5 )
+        s_videotools.Add( s_grid1, 1, wx.EXPAND, 5 )
 
 
-        s_BottomArea.Add( s_ToolsArea1, 1, wx.ALL|wx.EXPAND, 5 )
+        s_leftcontrols.Add( s_videotools, 0, wx.EXPAND, 5 )
 
-        s_ToolsArea2 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Measurement Tools" ), wx.VERTICAL )
+        s_measurements = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Measurements" ), wx.VERTICAL )
 
-        gSizer4 = wx.GridSizer( 0, 2, 0, 0 )
+        self.t_statusText = wx.TextCtrl( s_measurements.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY|wx.TE_WORDWRAP|wx.BORDER_NONE )
+        s_measurements.Add( self.t_statusText, 1, wx.ALL|wx.EXPAND, 5 )
 
-        self.m_staticText8 = wx.StaticText( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Current Tool: ", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
-        self.m_staticText8.Wrap( -1 )
 
-        gSizer4.Add( self.m_staticText8, 0, wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5 )
+        s_leftcontrols.Add( s_measurements, 1, wx.EXPAND, 5 )
+
+
+        s_mainarea.Add( s_leftcontrols, 1, wx.EXPAND, 5 )
+
+        s_rightcontrols = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Measurement Tools" ), wx.VERTICAL )
+
+        s_grid2 = wx.FlexGridSizer( 0, 2, 5, 10 )
+        s_grid2.AddGrowableCol( 1 )
+        s_grid2.SetFlexibleDirection( wx.BOTH )
+        s_grid2.SetNonFlexibleGrowMode( wx.FLEX_GROWMODE_NONE )
+
+        self.t_toolchoice1 = wx.StaticText( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Current Tool:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
+        self.t_toolchoice1.Wrap( -1 )
+
+        s_grid2.Add( self.t_toolchoice1, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT, 5 )
 
         b_mtoolChoices = [ u"Cross Section", u"Draw Line", u"Draw Polygon" ]
-        self.b_mtool = wx.Choice( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_mtoolChoices, 0 )
+        self.b_mtool = wx.Choice( s_rightcontrols.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_mtoolChoices, 0 )
         self.b_mtool.SetSelection( 0 )
-        gSizer4.Add( self.b_mtool, 0, wx.ALL|wx.EXPAND, 5 )
+        self.b_mtool.Enable( False )
+
+        s_grid2.Add( self.b_mtool, 0, wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5 )
+
+        self.t_toolchoice = wx.StaticText( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Slice Distance:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
+        self.t_toolchoice.Wrap( -1 )
+
+        s_grid2.Add( self.t_toolchoice, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT, 5 )
+
+        self.slider_distance = wx.Slider( s_rightcontrols.GetStaticBox(), wx.ID_ANY, 1000, 0, 5000, wx.DefaultPosition, wx.DefaultSize, wx.SL_BOTTOM|wx.SL_VALUE_LABEL )
+        self.slider_distance.SetFont( wx.Font( 8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+
+        s_grid2.Add( self.slider_distance, 0, wx.EXPAND, 5 )
+
+        self.t_rotateX = wx.StaticText( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Rotate Slice (X):", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
+        self.t_rotateX.Wrap( -1 )
+
+        s_grid2.Add( self.t_rotateX, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT, 5 )
+
+        self.slider_planeX = wx.Slider( s_rightcontrols.GetStaticBox(), wx.ID_ANY, 0, -45, 45, wx.DefaultPosition, wx.DefaultSize, wx.SL_VALUE_LABEL )
+        self.slider_planeX.SetFont( wx.Font( 8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+
+        s_grid2.Add( self.slider_planeX, 0, wx.EXPAND, 5 )
+
+        self.t_rotateY = wx.StaticText( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Rotate Slice (Y):", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
+        self.t_rotateY.Wrap( -1 )
+
+        s_grid2.Add( self.t_rotateY, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT, 5 )
+
+        self.slider_planeY = wx.Slider( s_rightcontrols.GetStaticBox(), wx.ID_ANY, 0, -45, 45, wx.DefaultPosition, wx.DefaultSize, wx.SL_VALUE_LABEL )
+        self.slider_planeY.SetFont( wx.Font( 8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+
+        s_grid2.Add( self.slider_planeY, 0, wx.EXPAND, 5 )
 
 
-        s_ToolsArea2.Add( gSizer4, 0, wx.EXPAND, 5 )
+        s_rightcontrols.Add( s_grid2, 1, wx.EXPAND|wx.LEFT|wx.RIGHT, 5 )
 
-        self.m_thresholdSlider = wx.Slider( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, 1000, 0, 5000, wx.DefaultPosition, wx.DefaultSize, wx.SL_MIN_MAX_LABELS )
-        self.m_thresholdSlider.SetFont( wx.Font( 8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+        s_grid3 = wx.GridSizer( 0, 3, 0, 0 )
 
-        s_ToolsArea2.Add( self.m_thresholdSlider, 0, wx.ALL|wx.EXPAND, 5 )
-
-        gSizer5 = wx.GridSizer( 0, 2, 0, 0 )
-
-        self.b_clearMeasurements = wx.Button( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Clear Overlay", wx.DefaultPosition, wx.DefaultSize, 0 )
-
-        self.b_clearMeasurements.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_MISSING_IMAGE, wx.ART_HELP_BROWSER ) )
-        self.b_clearMeasurements.Enable( False )
-
-        gSizer5.Add( self.b_clearMeasurements, 0, wx.ALL|wx.EXPAND, 5 )
-
-        self.b_recordMeasurement = wx.Button( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Record Measurement", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_recordMeasurement = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Record Measurement", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_recordMeasurement.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_PLUS, wx.ART_HELP_BROWSER ) )
         self.b_recordMeasurement.Enable( False )
 
-        gSizer5.Add( self.b_recordMeasurement, 0, wx.ALL|wx.EXPAND, 5 )
+        s_grid3.Add( self.b_recordMeasurement, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_showExporter = wx.Button( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Review Measurements", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_showmap = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Show Depth Map", wx.DefaultPosition, wx.DefaultSize, 0 )
 
-        self.b_showExporter.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_SAVE_AS, wx.ART_HELP_BROWSER ) )
-        self.b_showExporter.Enable( False )
+        self.b_showmap.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FIND, wx.ART_HELP_BROWSER ) )
+        self.b_showmap.Enable( False )
 
-        gSizer5.Add( self.b_showExporter, 0, wx.ALL|wx.EXPAND, 5 )
+        s_grid3.Add( self.b_showmap, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_help = wx.Button( s_ToolsArea2.GetStaticBox(), wx.ID_ANY, u"Help", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_resetCamera = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Reset Camera", wx.DefaultPosition, wx.DefaultSize, 0 )
 
-        self.b_help.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_HELP, wx.ART_MENU ) )
-        gSizer5.Add( self.b_help, 0, wx.ALL|wx.EXPAND, 5 )
+        self.b_resetCamera.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_GO_HOME, wx.ART_HELP_BROWSER ) )
+        s_grid3.Add( self.b_resetCamera, 0, wx.ALL|wx.EXPAND, 5 )
 
+        self.b_clearMeasurements = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Clear Overlay", wx.DefaultPosition, wx.DefaultSize, 0 )
 
-        s_ToolsArea2.Add( gSizer5, 0, wx.EXPAND, 5 )
+        self.b_clearMeasurements.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_REDO, wx.ART_HELP_BROWSER ) )
+        s_grid3.Add( self.b_clearMeasurements, 0, wx.ALL|wx.EXPAND, 5 )
 
+        self.b_resetPlane = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Reset Tool", wx.DefaultPosition, wx.DefaultSize, 0 )
 
-        s_BottomArea.Add( s_ToolsArea2, 2, wx.ALL|wx.EXPAND, 5 )
+        self.b_resetPlane.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_MISSING_IMAGE, wx.ART_HELP_BROWSER ) )
+        s_grid3.Add( self.b_resetPlane, 0, wx.ALL|wx.EXPAND, 5 )
 
-        s_MeasurementsArea = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Measurement Data" ), wx.VERTICAL )
-
-        self.t_statusText = wx.TextCtrl( s_MeasurementsArea.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY|wx.TE_WORDWRAP|wx.BORDER_NONE )
-        s_MeasurementsArea.Add( self.t_statusText, 1, wx.EXPAND, 5 )
-
-
-        s_BottomArea.Add( s_MeasurementsArea, 3, wx.ALL|wx.EXPAND, 5 )
-
-
-        s_BottomArea.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+        self.b_colormap = wx.CheckBox( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Remap colors", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_colormap.SetValue(True)
+        s_grid3.Add( self.b_colormap, 0, wx.ALL|wx.EXPAND, 5 )
 
 
-        s_Main.Add( s_BottomArea, 0, wx.EXPAND, 5 )
+        s_rightcontrols.Add( s_grid3, 0, wx.EXPAND, 5 )
+
+
+        s_mainarea.Add( s_rightcontrols, 1, wx.EXPAND, 5 )
+
+
+        s_Main.Add( s_mainarea, 1, wx.EXPAND, 5 )
 
 
         self.SetSizer( s_Main )
@@ -223,25 +238,33 @@ class MainInterface ( wx.Frame ):
         self.Bind( wx.EVT_MAXIMIZE, self.setSize )
         self.Bind( wx.EVT_MOVE_END, self.setSize )
         self.Bind( wx.EVT_SHOW, self.setSize )
+        self.b_open.Bind( wx.EVT_BUTTON, self.openVideo )
+        self.b_openExporter.Bind( wx.EVT_BUTTON, self.openExporter )
+        self.b_openViewer.Bind( wx.EVT_BUTTON, self.openViewer )
+        self.b_help.Bind( wx.EVT_BUTTON, self.openHelp )
         self.i_Image.Bind( wx.EVT_LEFT_DOWN, self.pickPoint )
         self.i_Image.Bind( wx.EVT_RIGHT_DOWN, self.clearMeasurements )
-        self.i_Depth.Bind( wx.EVT_LEFT_DOWN, self.pickPoint )
-        self.i_Depth.Bind( wx.EVT_RIGHT_DOWN, self.clearMeasurements )
         self.b_framePrevious.Bind( wx.EVT_BUTTON, self.framePrevious )
-        self.m_Time.Bind( wx.EVT_SCROLL_CHANGED, self.scrubDone )
-        self.m_Time.Bind( wx.EVT_SLIDER, self.scrub )
+        self.slider_time.Bind( wx.EVT_SCROLL_CHANGED, self.scrubDone )
+        self.slider_time.Bind( wx.EVT_SLIDER, self.scrub )
         self.b_FrameNext.Bind( wx.EVT_BUTTON, self.frameNext )
-        self.b_open.Bind( wx.EVT_BUTTON, self.openVideo )
         self.b_playVideo.Bind( wx.EVT_TOGGLEBUTTON, self.playVideo )
         self.b_showSettings.Bind( wx.EVT_BUTTON, self.showSettings )
-        self.b_exportImage.Bind( wx.EVT_BUTTON, self.exportImage )
-        self.b_mtool.Bind( wx.EVT_CHOICE, self.changeTool )
-        self.m_thresholdSlider.Bind( wx.EVT_SCROLL, self.threshChange )
-        self.b_clearMeasurements.Bind( wx.EVT_BUTTON, self.clearMeasurements )
-        self.b_recordMeasurement.Bind( wx.EVT_BUTTON, self.recordMeasurement )
-        self.b_showExporter.Bind( wx.EVT_BUTTON, self.showExporter )
-        self.b_help.Bind( wx.EVT_BUTTON, self.openHelp )
         self.t_statusText.Bind( wx.EVT_LEFT_DOWN, self.copyText )
+        self.b_mtool.Bind( wx.EVT_CHOICE, self.changeTool )
+        self.slider_distance.Bind( wx.EVT_SCROLL_CHANGED, self.slicerDone )
+        self.slider_distance.Bind( wx.EVT_SLIDER, self.slicerChange )
+        self.slider_planeX.Bind( wx.EVT_SCROLL, self.threshChange )
+        self.slider_planeX.Bind( wx.EVT_SCROLL_CHANGED, self.slicerDone )
+        self.slider_planeX.Bind( wx.EVT_SLIDER, self.slicerChange )
+        self.slider_planeY.Bind( wx.EVT_SCROLL_CHANGED, self.slicerDone )
+        self.slider_planeY.Bind( wx.EVT_SLIDER, self.slicerChange )
+        self.b_recordMeasurement.Bind( wx.EVT_BUTTON, self.recordMeasurement )
+        self.b_showmap.Bind( wx.EVT_BUTTON, self.showmap )
+        self.b_resetCamera.Bind( wx.EVT_BUTTON, self.resetCamera )
+        self.b_clearMeasurements.Bind( wx.EVT_BUTTON, self.clearMeasurements )
+        self.b_resetPlane.Bind( wx.EVT_BUTTON, self.resetPlane )
+        self.b_colormap.Bind( wx.EVT_CHECKBOX, self.toggleColors )
 
     def __del__( self ):
         pass
@@ -256,13 +279,23 @@ class MainInterface ( wx.Frame ):
 
 
 
+    def openVideo( self, event ):
+        pass
+
+    def openExporter( self, event ):
+        pass
+
+    def openViewer( self, event ):
+        pass
+
+    def openHelp( self, event ):
+        pass
+
     def pickPoint( self, event ):
         pass
 
     def clearMeasurements( self, event ):
         pass
-
-
 
     def framePrevious( self, event ):
         pass
@@ -276,35 +309,45 @@ class MainInterface ( wx.Frame ):
     def frameNext( self, event ):
         pass
 
-    def openVideo( self, event ):
-        pass
-
     def playVideo( self, event ):
         pass
 
     def showSettings( self, event ):
         pass
 
-    def exportImage( self, event ):
+    def copyText( self, event ):
         pass
 
     def changeTool( self, event ):
+        pass
+
+    def slicerDone( self, event ):
+        pass
+
+    def slicerChange( self, event ):
         pass
 
     def threshChange( self, event ):
         pass
 
 
+
+
+
     def recordMeasurement( self, event ):
         pass
 
-    def showExporter( self, event ):
+    def showmap( self, event ):
         pass
 
-    def openHelp( self, event ):
+    def resetCamera( self, event ):
         pass
 
-    def copyText( self, event ):
+
+    def resetPlane( self, event ):
+        pass
+
+    def toggleColors( self, event ):
         pass
 
 
@@ -399,13 +442,6 @@ class VideoSettings ( wx.Dialog ):
 
         bSizer14.Add( ( 0, 0), 1, wx.EXPAND, 5 )
 
-        self.b_colormap = wx.CheckBox( self, wx.ID_ANY, u"Use Colormap", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
-        self.b_colormap.SetValue(True)
-        bSizer14.Add( self.b_colormap, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
-
-
-        bSizer14.Add( ( 0, 0), 1, wx.EXPAND, 5 )
-
 
         s_Trimmer.Add( bSizer14, 1, wx.ALL|wx.EXPAND, 5 )
 
@@ -473,13 +509,13 @@ class VideoSettings ( wx.Dialog ):
 
 
 ###########################################################################
-## Class Exporter
+## Class Measurements
 ###########################################################################
 
-class Exporter ( wx.Dialog ):
+class Measurements ( wx.Dialog ):
 
     def __init__( self, parent ):
-        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Export Preview", pos = wx.DefaultPosition, size = wx.Size( 1100,800 ), style = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER )
+        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Measurement Table Viewer", pos = wx.DefaultPosition, size = wx.Size( 1100,800 ), style = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER )
 
         self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 
@@ -531,45 +567,195 @@ class Exporter ( wx.Dialog ):
         self.grid.SetDefaultCellAlignment( wx.ALIGN_LEFT, wx.ALIGN_CENTER )
         s_exportMain.Add( self.grid, 1, wx.ALL|wx.EXPAND, 10 )
 
-        self.m_staticline3 = wx.StaticLine( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
-        s_exportMain.Add( self.m_staticline3, 0, wx.ALL|wx.EXPAND, 5 )
-
-        s_exportBottom = wx.BoxSizer( wx.HORIZONTAL )
-
-        s_exportBottom.SetMinSize( wx.Size( -1,50 ) )
-        self.b_exportFilename = wx.FilePickerCtrl( self, wx.ID_ANY, wx.EmptyString, u"Select a file to save an XLSX file.", u"*.xlsx", wx.DefaultPosition, wx.DefaultSize, wx.FLP_OVERWRITE_PROMPT|wx.FLP_SAVE|wx.FLP_USE_TEXTCTRL )
-        s_exportBottom.Add( self.b_exportFilename, 1, wx.EXPAND|wx.RIGHT, 10 )
-
-        self.b_exportSave = wx.Button( self, wx.ID_ANY, u"Save", wx.DefaultPosition, wx.DefaultSize, 0 )
-
-        self.b_exportSave.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_SAVE, wx.ART_HELP_BROWSER ) )
-        self.b_exportSave.Enable( False )
-        self.b_exportSave.SetMinSize( wx.Size( 200,-1 ) )
-
-        s_exportBottom.Add( self.b_exportSave, 0, wx.EXPAND, 5 )
-
-
-        s_exportMain.Add( s_exportBottom, 0, wx.ALL|wx.EXPAND, 5 )
-
 
         self.SetSizer( s_exportMain )
         self.Layout()
 
         self.Centre( wx.BOTH )
 
+    def __del__( self ):
+        pass
+
+
+###########################################################################
+## Class SaveWizard
+###########################################################################
+
+class SaveWizard ( wx.Dialog ):
+
+    def __init__( self, parent ):
+        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Batch Exporter", pos = wx.DefaultPosition, size = wx.Size( 652,505 ), style = wx.DEFAULT_DIALOG_STYLE )
+
+        self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
+
+        saveSizer = wx.BoxSizer( wx.VERTICAL )
+
+        self.t_saveTitle = wx.StaticText( self, wx.ID_ANY, u"Select Formats to Export", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_CENTER_HORIZONTAL )
+        self.t_saveTitle.Wrap( -1 )
+
+        self.t_saveTitle.SetFont( wx.Font( 14, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, False, "Arial" ) )
+
+        saveSizer.Add( self.t_saveTitle, 0, wx.ALL|wx.EXPAND, 5 )
+
+        saveSizer2 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Endoscopy Image (video frame)" ), wx.HORIZONTAL )
+
+        self.cb_image = wx.CheckBox( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer2.Add( self.cb_image, 0, wx.ALL, 5 )
+
+        self.t_imageName = wx.TextCtrl( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer2.Add( self.t_imageName, 1, 0, 5 )
+
+        c_imageFmtChoices = [ u".jpg", u".png" ]
+        self.c_imageFmt = wx.Choice( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_imageFmtChoices, 0 )
+        self.c_imageFmt.SetSelection( 0 )
+        saveSizer2.Add( self.c_imageFmt, 0, 0, 5 )
+
+
+        saveSizer.Add( saveSizer2, 0, wx.ALL|wx.EXPAND, 5 )
+
+        saveSizer3 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Depth Map (image or data)" ), wx.HORIZONTAL )
+
+        self.cb_depthmap = wx.CheckBox( saveSizer3.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer3.Add( self.cb_depthmap, 0, wx.ALL, 5 )
+
+        self.t_depthmapName = wx.TextCtrl( saveSizer3.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer3.Add( self.t_depthmapName, 1, 0, 5 )
+
+        c_depthmapFmtChoices = [ u".png", u".jpg", u".npy", u".csv" ]
+        self.c_depthmapFmt = wx.Choice( saveSizer3.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_depthmapFmtChoices, 0 )
+        self.c_depthmapFmt.SetSelection( 0 )
+        saveSizer3.Add( self.c_depthmapFmt, 0, 0, 5 )
+
+
+        saveSizer.Add( saveSizer3, 0, wx.ALL|wx.EXPAND, 5 )
+
+        saveSizer4 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Point Cloud Data" ), wx.HORIZONTAL )
+
+        self.cb_pointcloud = wx.CheckBox( saveSizer4.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer4.Add( self.cb_pointcloud, 0, wx.ALL, 5 )
+
+        self.t_pointcloudName = wx.TextCtrl( saveSizer4.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer4.Add( self.t_pointcloudName, 1, 0, 5 )
+
+        c_pointcloudFmtChoices = [ u".npy", u".xyz" ]
+        self.c_pointcloudFmt = wx.Choice( saveSizer4.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_pointcloudFmtChoices, 0 )
+        self.c_pointcloudFmt.SetSelection( 0 )
+        saveSizer4.Add( self.c_pointcloudFmt, 0, 0, 5 )
+
+
+        saveSizer.Add( saveSizer4, 0, wx.ALL|wx.EXPAND, 5 )
+
+        saveSizer5 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Measurement Table" ), wx.HORIZONTAL )
+
+        self.cb_measurement = wx.CheckBox( saveSizer5.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer5.Add( self.cb_measurement, 0, wx.ALL, 5 )
+
+        self.t_measurementName = wx.TextCtrl( saveSizer5.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer5.Add( self.t_measurementName, 1, 0, 5 )
+
+        c_measurementFmtChoices = [ u".xlsx", u".csv" ]
+        self.c_measurementFmt = wx.Choice( saveSizer5.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_measurementFmtChoices, 0 )
+        self.c_measurementFmt.SetSelection( 0 )
+        saveSizer5.Add( self.c_measurementFmt, 0, 0, 5 )
+
+
+        saveSizer.Add( saveSizer5, 0, wx.ALL|wx.EXPAND, 5 )
+
+
+        saveSizer.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+
+        saveSizer6 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Output Directory" ), wx.HORIZONTAL )
+
+
+        saveSizer6.Add( ( 28, 0), 0, 0, 5 )
+
+        self.outputDirectory = wx.DirPickerCtrl( saveSizer6.GetStaticBox(), wx.ID_ANY, wx.EmptyString, u"Select a folder", wx.DefaultPosition, wx.DefaultSize, wx.DIRP_DEFAULT_STYLE )
+        saveSizer6.Add( self.outputDirectory, 1, wx.ALL|wx.EXPAND, 5 )
+
+
+        saveSizer.Add( saveSizer6, 1, wx.ALL|wx.EXPAND, 5 )
+
+        self.m_staticline5 = wx.StaticLine( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
+        saveSizer.Add( self.m_staticline5, 0, wx.EXPAND |wx.ALL, 5 )
+
+        self.b_dosave = wx.Button( self, wx.ID_ANY, u"Save", wx.DefaultPosition, wx.Size( 200,-1 ), 0 )
+
+        self.b_dosave.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_SAVE, wx.ART_TOOLBAR ) )
+        saveSizer.Add( self.b_dosave, 0, wx.ALIGN_RIGHT|wx.ALL, 5 )
+
+
+        self.SetSizer( saveSizer )
+        self.Layout()
+
+        self.Centre( wx.BOTH )
+
         # Connect Events
-        self.b_exportFilename.Bind( wx.EVT_FILEPICKER_CHANGED, self.readyToSave )
-        self.b_exportSave.Bind( wx.EVT_BUTTON, self.exportSave )
+        self.b_dosave.Bind( wx.EVT_BUTTON, self.doSave )
 
     def __del__( self ):
         pass
 
 
     # Virtual event handlers, override them in your derived class
-    def readyToSave( self, event ):
+    def doSave( self, event ):
         pass
 
-    def exportSave( self, event ):
+
+###########################################################################
+## Class DepthmapViewer
+###########################################################################
+
+class DepthmapViewer ( wx.Dialog ):
+
+    def __init__( self, parent ):
+        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Depthmap Viewer", pos = wx.DefaultPosition, size = wx.DefaultSize, style = wx.CAPTION|wx.CLOSE_BOX|wx.SYSTEM_MENU )
+
+        self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
+
+        dm_sizer1 = wx.BoxSizer( wx.VERTICAL )
+
+        self.i_depthmap = wx.StaticBitmap( self, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.Size( 720,720 ), 0 )
+        dm_sizer1.Add( self.i_depthmap, 0, wx.ALL|wx.SHAPED, 5 )
+
+        dm_sizer2 = wx.BoxSizer( wx.HORIZONTAL )
+
+        self.b_colormap = wx.CheckBox( self, wx.ID_ANY, u"Remap colors", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_colormap.SetValue(True)
+        dm_sizer2.Add( self.b_colormap, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
+
+        self.t_stats = wx.StaticText( self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_CENTER_HORIZONTAL )
+        self.t_stats.Wrap( -1 )
+
+        dm_sizer2.Add( self.t_stats, 1, wx.ALIGN_CENTER_VERTICAL, 5 )
+
+        self.m_closeViewer = wx.Button( self, wx.ID_ANY, u"OK", wx.DefaultPosition, wx.DefaultSize, 0 )
+
+        self.m_closeViewer.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_TICK_MARK, wx.ART_TOOLBAR ) )
+        dm_sizer2.Add( self.m_closeViewer, 0, wx.ALIGN_BOTTOM|wx.ALL, 5 )
+
+
+        dm_sizer1.Add( dm_sizer2, 1, wx.EXPAND, 5 )
+
+
+        self.SetSizer( dm_sizer1 )
+        self.Layout()
+        dm_sizer1.Fit( self )
+
+        self.Centre( wx.BOTH )
+
+        # Connect Events
+        self.b_colormap.Bind( wx.EVT_CHECKBOX, self.toggleColors )
+        self.m_closeViewer.Bind( wx.EVT_BUTTON, self.closeViewer )
+
+    def __del__( self ):
+        pass
+
+
+    # Virtual event handlers, override them in your derived class
+    def toggleColors( self, event ):
+        pass
+
+    def closeViewer( self, event ):
         pass
 
 
