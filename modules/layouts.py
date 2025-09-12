@@ -40,7 +40,7 @@ class MainInterface ( wx.Frame ):
 
         s_StatusBar.Add( self.b_openExporter, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_openViewer = wx.Button( self, wx.ID_ANY, u"View Measurements", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_openViewer = wx.Button( self, wx.ID_ANY, u"View Measurements...", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_openViewer.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_LIST_VIEW, wx.ART_TOOLBAR ) )
         self.b_openViewer.Enable( False )
@@ -97,7 +97,7 @@ class MainInterface ( wx.Frame ):
 
         s_videotools.Add( s_transport, 0, wx.ALL|wx.EXPAND, 5 )
 
-        s_grid1 = wx.GridSizer( 0, 2, 0, 0 )
+        s_grid1 = wx.GridSizer( 0, 3, 0, 0 )
 
         self.b_playVideo = wx.ToggleButton( s_videotools.GetStaticBox(), wx.ID_ANY, u"Play/Pause Video", wx.DefaultPosition, wx.DefaultSize, 0 )
 
@@ -107,7 +107,14 @@ class MainInterface ( wx.Frame ):
 
         s_grid1.Add( self.b_playVideo, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_showSettings = wx.Button( s_videotools.GetStaticBox(), wx.ID_ANY, u"Video Settings", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_jumpFrame = wx.Button( s_videotools.GetStaticBox(), wx.ID_ANY, u"Jump To...", wx.DefaultPosition, wx.DefaultSize, 0 )
+
+        self.b_jumpFrame.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_GOTO_LAST, wx.ART_HELP_BROWSER ) )
+        self.b_jumpFrame.Enable( False )
+
+        s_grid1.Add( self.b_jumpFrame, 0, wx.ALL|wx.EXPAND, 5 )
+
+        self.b_showSettings = wx.Button( s_videotools.GetStaticBox(), wx.ID_ANY, u"Video Settings...", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_showSettings.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FIND_AND_REPLACE, wx.ART_HELP_BROWSER ) )
         self.b_showSettings.Enable( False )
@@ -120,7 +127,7 @@ class MainInterface ( wx.Frame ):
 
         s_leftcontrols.Add( s_videotools, 0, wx.EXPAND, 5 )
 
-        s_measurements = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Measurements" ), wx.VERTICAL )
+        s_measurements = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Message Log" ), wx.VERTICAL )
 
         self.t_statusText = wx.TextCtrl( s_measurements.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY|wx.TE_WORDWRAP|wx.BORDER_NONE )
         s_measurements.Add( self.t_statusText, 1, wx.ALL|wx.EXPAND, 5 )
@@ -137,18 +144,6 @@ class MainInterface ( wx.Frame ):
         s_grid2.AddGrowableCol( 1 )
         s_grid2.SetFlexibleDirection( wx.BOTH )
         s_grid2.SetNonFlexibleGrowMode( wx.FLEX_GROWMODE_NONE )
-
-        self.t_toolchoice1 = wx.StaticText( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Current Tool:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
-        self.t_toolchoice1.Wrap( -1 )
-
-        s_grid2.Add( self.t_toolchoice1, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT, 5 )
-
-        b_mtoolChoices = [ u"Cross Section", u"Draw Line", u"Draw Polygon" ]
-        self.b_mtool = wx.Choice( s_rightcontrols.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_mtoolChoices, 0 )
-        self.b_mtool.SetSelection( 0 )
-        self.b_mtool.Enable( False )
-
-        s_grid2.Add( self.b_mtool, 0, wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5 )
 
         self.t_toolchoice = wx.StaticText( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Slice Distance:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
         self.t_toolchoice.Wrap( -1 )
@@ -192,30 +187,31 @@ class MainInterface ( wx.Frame ):
 
         s_grid3.Add( self.b_recordMeasurement, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_showmap = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Show Depth Map", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.b_showmap = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Show Depth Map...", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_showmap.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FIND, wx.ART_HELP_BROWSER ) )
         self.b_showmap.Enable( False )
 
         s_grid3.Add( self.b_showmap, 0, wx.ALL|wx.EXPAND, 5 )
 
+        b_vischoiceChoices = [ u"Show All", u"Hide Slicing Plane", u"Show Selection Only" ]
+        self.b_vischoice = wx.Choice( s_rightcontrols.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_vischoiceChoices, 0 )
+        self.b_vischoice.SetSelection( 0 )
+        s_grid3.Add( self.b_vischoice, 0, wx.ALL|wx.EXPAND, 5 )
+
+        self.b_resetPlane = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Reset Tools", wx.DefaultPosition, wx.DefaultSize, 0 )
+
+        self.b_resetPlane.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_MISSING_IMAGE, wx.ART_HELP_BROWSER ) )
+        s_grid3.Add( self.b_resetPlane, 0, wx.ALL|wx.EXPAND, 5 )
+
         self.b_resetCamera = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Reset Camera", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_resetCamera.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_GO_HOME, wx.ART_HELP_BROWSER ) )
         s_grid3.Add( self.b_resetCamera, 0, wx.ALL|wx.EXPAND, 5 )
 
-        self.b_clearMeasurements = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Clear Overlay", wx.DefaultPosition, wx.DefaultSize, 0 )
-
-        self.b_clearMeasurements.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_REDO, wx.ART_HELP_BROWSER ) )
-        s_grid3.Add( self.b_clearMeasurements, 0, wx.ALL|wx.EXPAND, 5 )
-
-        self.b_resetPlane = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Reset Tool", wx.DefaultPosition, wx.DefaultSize, 0 )
-
-        self.b_resetPlane.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_MISSING_IMAGE, wx.ART_HELP_BROWSER ) )
-        s_grid3.Add( self.b_resetPlane, 0, wx.ALL|wx.EXPAND, 5 )
-
-        self.b_colormap = wx.CheckBox( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Remap colors", wx.DefaultPosition, wx.DefaultSize, 0 )
-        self.b_colormap.SetValue(True)
+        b_colormapChoices = [ u"Monochrome", u"Inferno", u"Bone", u"Rainbow" ]
+        self.b_colormap = wx.Choice( s_rightcontrols.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_colormapChoices, 0 )
+        self.b_colormap.SetSelection( 0 )
         s_grid3.Add( self.b_colormap, 0, wx.ALL|wx.EXPAND, 5 )
 
 
@@ -249,9 +245,9 @@ class MainInterface ( wx.Frame ):
         self.slider_time.Bind( wx.EVT_SLIDER, self.scrub )
         self.b_FrameNext.Bind( wx.EVT_BUTTON, self.frameNext )
         self.b_playVideo.Bind( wx.EVT_TOGGLEBUTTON, self.playVideo )
+        self.b_jumpFrame.Bind( wx.EVT_BUTTON, self.jumpFrame )
         self.b_showSettings.Bind( wx.EVT_BUTTON, self.showSettings )
         self.t_statusText.Bind( wx.EVT_LEFT_DOWN, self.copyText )
-        self.b_mtool.Bind( wx.EVT_CHOICE, self.changeTool )
         self.slider_distance.Bind( wx.EVT_SCROLL_CHANGED, self.slicerDone )
         self.slider_distance.Bind( wx.EVT_SLIDER, self.slicerChange )
         self.slider_planeX.Bind( wx.EVT_SCROLL, self.threshChange )
@@ -261,10 +257,10 @@ class MainInterface ( wx.Frame ):
         self.slider_planeY.Bind( wx.EVT_SLIDER, self.slicerChange )
         self.b_recordMeasurement.Bind( wx.EVT_BUTTON, self.recordMeasurement )
         self.b_showmap.Bind( wx.EVT_BUTTON, self.showmap )
-        self.b_resetCamera.Bind( wx.EVT_BUTTON, self.resetCamera )
-        self.b_clearMeasurements.Bind( wx.EVT_BUTTON, self.clearMeasurements )
+        self.b_vischoice.Bind( wx.EVT_CHOICE, self.changeVisibility )
         self.b_resetPlane.Bind( wx.EVT_BUTTON, self.resetPlane )
-        self.b_colormap.Bind( wx.EVT_CHECKBOX, self.toggleColors )
+        self.b_resetCamera.Bind( wx.EVT_BUTTON, self.resetCamera )
+        self.b_colormap.Bind( wx.EVT_CHOICE, self.setColors )
 
     def __del__( self ):
         pass
@@ -312,13 +308,13 @@ class MainInterface ( wx.Frame ):
     def playVideo( self, event ):
         pass
 
+    def jumpFrame( self, event ):
+        pass
+
     def showSettings( self, event ):
         pass
 
     def copyText( self, event ):
-        pass
-
-    def changeTool( self, event ):
         pass
 
     def slicerDone( self, event ):
@@ -340,14 +336,16 @@ class MainInterface ( wx.Frame ):
     def showmap( self, event ):
         pass
 
-    def resetCamera( self, event ):
+    def changeVisibility( self, event ):
         pass
-
 
     def resetPlane( self, event ):
         pass
 
-    def toggleColors( self, event ):
+    def resetCamera( self, event ):
+        pass
+
+    def setColors( self, event ):
         pass
 
 
@@ -524,33 +522,24 @@ class Measurements ( wx.Dialog ):
         self.grid = wx.grid.Grid( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
 
         # Grid
-        self.grid.CreateGrid( 1, 9 )
+        self.grid.CreateGrid( 1, 8 )
         self.grid.EnableEditing( False )
         self.grid.EnableGridLines( True )
         self.grid.EnableDragGridSize( False )
         self.grid.SetMargins( 20, 20 )
 
         # Columns
-        self.grid.SetColSize( 0, 50 )
-        self.grid.SetColSize( 1, 70 )
-        self.grid.SetColSize( 2, 140 )
-        self.grid.SetColSize( 3, 140 )
-        self.grid.SetColSize( 4, 100 )
-        self.grid.SetColSize( 5, 100 )
-        self.grid.SetColSize( 6, 110 )
-        self.grid.SetColSize( 7, 110 )
-        self.grid.SetColSize( 8, 200 )
+        self.grid.AutoSizeColumns()
         self.grid.EnableDragColMove( False )
         self.grid.EnableDragColSize( True )
         self.grid.SetColLabelValue( 0, u"i" )
-        self.grid.SetColLabelValue( 1, u"Frame" )
+        self.grid.SetColLabelValue( 1, u"Frame No." )
         self.grid.SetColLabelValue( 2, u"Timecode" )
-        self.grid.SetColLabelValue( 3, u"MinMax" )
-        self.grid.SetColLabelValue( 4, u"Threshold" )
-        self.grid.SetColLabelValue( 5, u"Distance" )
-        self.grid.SetColLabelValue( 6, u"Area (px)" )
-        self.grid.SetColLabelValue( 7, u"Area (cm^2)" )
-        self.grid.SetColLabelValue( 8, u"CameraPos" )
+        self.grid.SetColLabelValue( 3, u"Pointcloud Range" )
+        self.grid.SetColLabelValue( 4, u"Plane Distance" )
+        self.grid.SetColLabelValue( 5, u"Plane Rotation" )
+        self.grid.SetColLabelValue( 6, u"Matched Points" )
+        self.grid.SetColLabelValue( 7, u"Cross Section Area" )
         self.grid.SetColLabelSize( wx.grid.GRID_AUTOSIZE )
         self.grid.SetColLabelAlignment( wx.ALIGN_CENTER, wx.ALIGN_CENTER )
 
@@ -565,7 +554,10 @@ class Measurements ( wx.Dialog ):
         # Cell Defaults
         self.grid.SetDefaultCellFont( wx.Font( 9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
         self.grid.SetDefaultCellAlignment( wx.ALIGN_LEFT, wx.ALIGN_CENTER )
-        s_exportMain.Add( self.grid, 1, wx.ALL|wx.EXPAND, 10 )
+        s_exportMain.Add( self.grid, 1, wx.EXPAND|wx.LEFT|wx.RIGHT, 5 )
+
+        self.b_close = wx.Button( self, wx.ID_ANY, u"OK", wx.DefaultPosition, wx.DefaultSize, 0 )
+        s_exportMain.Add( self.b_close, 0, wx.ALIGN_RIGHT|wx.ALL, 5 )
 
 
         self.SetSizer( s_exportMain )
@@ -573,7 +565,15 @@ class Measurements ( wx.Dialog ):
 
         self.Centre( wx.BOTH )
 
+        # Connect Events
+        self.b_close.Bind( wx.EVT_BUTTON, self.closeTable )
+
     def __del__( self ):
+        pass
+
+
+    # Virtual event handlers, override them in your derived class
+    def closeTable( self, event ):
         pass
 
 

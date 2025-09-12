@@ -47,7 +47,7 @@ class EndoVideo:
     def getLength(self):
         # returns nice looking string: (5:00.00)
         minutes = str(floor((self._maxFrame / self._rate) / 60)).zfill(2)
-        seconds = str(round((self._maxFrame / self._rate) % 60, 2)).zfill(5)
+        seconds = str(round((self._maxFrame / self._rate) % 60, 2))
         return " (" + minutes + ":" + seconds + ")"        
 
     def nextFrame(self):
@@ -99,10 +99,10 @@ class EndoVideo:
         step3 = wxb.FromBuffer(500, 500, step3.tobytes())    
         return step3
     
-    def blankFrame(self):
-        black = Image.new(mode="RGB", size=(self.guiSize, self.guiSize))
-        blackWX = wxb.FromBuffer(self.guiSize, self.guiSize, black.tobytes())
-        return blackWX
+    # def blankFrame(self):
+    #     black = Image.new(mode="RGB", size=(self.guiSize, self.guiSize))
+    #     blackWX = wxb.FromBuffer(self.guiSize, self.guiSize, black.tobytes())
+    #     return blackWX
 
     def updateCrop(self, offset, zoom):
         self.offset = offset

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#from typing_extensions import Self
 import wx
 import wx.grid
 from os import startfile, getcwd, mkdir
@@ -11,11 +10,9 @@ import modules.layouts as layouts       #all gui views.
 import modules.imaging as QEImaging     #openCV image processing
 import modules.analysis as QEAnalysis   #ML depth analysis
 import modules.logging as log
-#import modules.measurement as QEMeasurement   #image annotation
 
-vid = None      #The QEImaging instance
-
-pixelScale = 0.0
+vid = None          #The QEImaging instance
+pixelScale = 0.0    #screenshot hack
 
 class main(layouts.MainInterface):  
     def __init__(self,parent):
@@ -79,8 +76,8 @@ class main(layouts.MainInterface):
         
         #load the video as this persistent object
         progress.Pulse(newmsg="Loading Video Data...")
-        if autoload == None:
-            log.startup(dlg.GetPath())
+        log.startup()
+        if autoload == None:            
             if dlg.GetPath()[-3:] == "csv":
                 progress.Destroy()
                 wx.MessageBox('CSV files cannot be loaded in this way.', 'Error.', wx.OK | wx.ICON_ERROR)
@@ -104,11 +101,11 @@ class main(layouts.MainInterface):
             #vispy = QEAnalysis.Depthmap.bakedDepthmap=True                     
             wx.MessageBox('A depth file was found and will be used instead of evaluation depth.', 'Error.', wx.OK | wx.ICON_ERROR)
         #else: 
-             #vispy = QEDepth.Depth(None, vid)
-        
+             #vispy = QEDepth.Depth(None, vid)        
         
         #apply changes from the loaded video to the gui
         progress.Pulse(newmsg="Processing metadata...")
+        log.framerate = vid._rate
 
         #enable the locked out buttons
         self.SetTitle("Quantitative Endoscopy: " + vid.nicename)
@@ -120,7 +117,7 @@ class main(layouts.MainInterface):
         self.b_recordMeasurement.Enable(True)
         self.b_openExporter.Enable(True)
         self.b_openViewer.Enable(True)
-        self.b_colormap.SetValue(False)
+        self.b_jumpFrame.Enable(True)
         vid.guiSize = self.i_Image.GetSize().Width
                 
         progress.Pulse(newmsg="Processing Frame 1...")
@@ -216,9 +213,44 @@ class main(layouts.MainInterface):
         QEAnalysis.Depthmap.processDepth(vid.imageCache)
         self.slider_distance.SetMin(int(QEAnalysis.Depthmap.minmax[0] * 1000 + 1))
         self.slider_distance.SetMax(int(QEAnalysis.Depthmap.minmax[1] * 1000 - 1))
+        self.slicerChange(event)
 
+    def pickPoint( self, event ):
+        #Don't measure if the video is playing
+        if self.b_playVideo.GetValue() == True:
+            return
+        #Don't measure if there's no video loaded
+        global vid
+        if vid == None:
+            return
+        
+        mouseCoords = event.GetPosition()
+        targetCoords = (int(mouseCoords[0] / vid.guiSize * 720), int(mouseCoords[1] / vid.guiSize * 720))
+        threshold = QEAnalysis.Depthmap.dataCache[targetCoords[1]][targetCoords[0]]
+        self.slider_distance.SetValue(int(threshold * 1000))
+
+        #trigger the slider change event to update the plane
+        self.slicerChange(event)      
+        #todo: place marker on image
 
     ###LEFT SIDE FUNCTIONS###
+    def jumpFrame( self, event ):
+        global vid
+        dlg = wx.GetNumberFromUser(
+            message="",
+            prompt="Frame: ", 
+            caption="Jump to Frame", 
+            value=int(vid.currentFrame), 
+            min=int(vid.startFrame), 
+            max=int(vid.endFrame))
+        
+        if dlg != -1:
+            self.slider_time.SetValue(dlg)
+            self.i_Image.SetBitmap(vid.specificFrame(dlg))
+            QEAnalysis.Depthmap.processDepth(vid.imageCache)
+            self.slicerDone(event)
+
+
     def showSettings(self, event):
         self.b_playVideo.SetValue(False)
         #QEMeasurement.overlayEnabled = False
@@ -255,6 +287,8 @@ class main(layouts.MainInterface):
     def slicerDone( self, event ):
         d, x, y = self.slider_distance.GetValue(), self.slider_planeX.GetValue(), self.slider_planeY.GetValue()
         QEAnalysis.VispyPanel.changeSlice(d, x, y, measure=True)
+        log.currentEntry.distance = d / 1000.0
+        log.currentEntry.rotation = (x, y)
 
     def changeTool(self, event):
         #self.clearMeasurements(event)   
@@ -263,45 +297,48 @@ class main(layouts.MainInterface):
     def recordMeasurement(self, event):
         #finalize data
         global vid, pixelScale
+        log.currentEntry.frame = vid.currentFrame
         #QEMeasurement.currentEntry.frame = vid.currentFrame       
         status = self.t_statusText.GetValue() + "\nStored."
         self.t_statusText.SetValue(status)
         
-        #prepare screenshot metadata
-        screenshotPath = getcwd() + "\\logs\\" + vid.nicename
-        if isdir(screenshotPath) == False:
-            mkdir(screenshotPath)
-        #shot_filename = screenshotPath + "\\" + vid.nicename + "_" + str(QEMeasurement.counter()).zfill(2) + ".png"
-        rect = self.GetRect() # pixelScale
-        crop = (rect.Left, rect.Top, rect.Right, rect.Bottom)     #wx and PIL use different formats.
+        # #prepare screenshot metadata
+        # screenshotPath = getcwd() + "\\logs\\" + vid.nicename
+        # if isdir(screenshotPath) == False:
+        #     mkdir(screenshotPath)
+        # #shot_filename = screenshotPath + "\\" + vid.nicename + "_" + str(QEMeasurement.counter()).zfill(2) + ".png"
+        # rect = self.GetRect() # pixelScale
+        # crop = (rect.Left, rect.Top, rect.Right, rect.Bottom)     #wx and PIL use different formats.
 
         #take screenshot
         #QEImaging.takeScreenshot(crop,shot_filename)       
 
         #commit the log
-        #QEMeasurement.store()
+        log.store()
 
     def showmap( self, event ):
         dlg = depthmapViewer(self)
+        originalColor = QEAnalysis.Depthmap.colormap
         dlg.ShowModal()
-        self.b_colormap.SetValue(QEAnalysis.Depthmap.colormap)
+        self.b_colormap.SetSelection(QEAnalysis.Depthmap.colormap)
+        if QEAnalysis.Depthmap.colormap != originalColor:
+            QEAnalysis.Depthmap.processDepth(vid.imageCache)
 
     def resetCamera( self, event ):
         QEAnalysis.VispyPanel.resetCam()
-
-    def clearMeasurements(self, event):
-        #QEMeasurement.overlayEnabled = False
-        #self.i_Depth.SetBitmap(depth.postProcess(vid.guiSize))
-        #self.i_Image.SetBitmap(vid.refreshAnnoation())
-        self.t_statusText.SetValue("Annotation Cleared.")
 
     def resetPlane( self, event ):
         self.slider_planeX.SetValue(0)
         self.slider_planeY.SetValue(0)        
         QEAnalysis.VispyPanel.changeSlice(wx.IdleEvent(), self.slider_distance.GetValue())
+        log.currentEntry.rotation = (0,0)
 
-    def toggleColors( self, event ):
-        QEAnalysis.Depthmap.colormap = self.b_colormap.GetValue()
+    def changeVisibility( self, event ):
+        QEAnalysis.Depthmap.visibility = self.b_vischoice.GetSelection()
+        QEAnalysis.Depthmap.processDepth(vid.imageCache)
+
+    def setColors( self, event ):
+        QEAnalysis.Depthmap.colormap = self.b_colormap.GetSelection()
         QEAnalysis.Depthmap.processDepth(vid.imageCache)
 
     ###WINDOW MANAGEMENT###
@@ -396,46 +433,23 @@ class viewMeasurements(layouts.Measurements):
         layouts.Measurements.__init__(self,parent)
        
         #l.sortData()       
-        #data = QEMeasurement.generatePreview()
-        data = None
+        data = log.generatePreview()
         if (len(data) < 1):
             return
         
         #put data into the grid
         self.grid.AppendRows(len(data))
         for row in range(0, len(data)):        
-            for col in range(0,9):
+            for col in range(0,8):
                 cellContents = str(data[row][col])
                 self.grid.SetCellValue(row + 1, col, cellContents)
 
-        #auto choose a file name
-        logPath = getcwd() + "\\logs\\" + vid.nicename
-        if isdir(logPath) == False:
-            mkdir(logPath)
-
-        logName = "\\" + vid.nicename + "_measurements.xlsx"        
-        self.b_exportFilename.SetPath(logPath + logName)
-        self.b_exportSave.Enable(True)
-
+        self.grid.AutoSizeColumns()
         self.Layout()
 
-    def readyToSave(self, event):
-        if str.lower(self.b_exportFilename.GetPath()[-5:]) != ".xlsx":
-            self.b_exportSave.Enable(False)
-        else:
-            self.b_exportSave.Enable(True)
+    def closeTable(self, event):
+        self.EndModal(wx.ID_OK)
 
-    def exportSave(self, event):
-        global vid
-        if str.lower(self.b_exportFilename.GetPath()[-5:]) != ".xlsx":
-            return
-
-        if (False):#QEMeasurement.writeLog(vid.nicename, self.b_exportFilename.GetPath())):
-            self.EndModal(wx.ID_OK)
-            wx.MessageBox('The file was successfully saved.', 'File Saved.', wx.OK | wx.ICON_INFORMATION)
-        else: 
-            self.EndModal(wx.ID_CANCEL)
-            wx.MessageBox('The file was not saved due to an error.', 'Error.', wx.OK | wx.ICON_ERROR)
             
 class saveWizard(layouts.SaveWizard):
     def __init__(self, parent):
@@ -498,17 +512,22 @@ class saveWizard(layouts.SaveWizard):
         dlg.ShowModal()
         
         
-class depthmapViewer(layouts.DepthmapViewer): 
+class depthmapViewer(layouts.DepthmapViewer):  
     def __init__(self, parent):
         #initialize parent class
         layouts.DepthmapViewer.__init__(self,parent)
-        self.b_colormap.SetValue(QEAnalysis.Depthmap.colormap)
+        self.originalColor = QEAnalysis.Depthmap.colormap
+        if self.originalColor != 0:
+            self.b_colormap.SetValue(True)
         self.i_depthmap.SetBitmap(QEAnalysis.Depthmap.getImage())
         info = f"Depthmap Range: {QEAnalysis.Depthmap.minmax[0]:.4f} - {QEAnalysis.Depthmap.minmax[1]:.4f}"
         self.t_stats.SetLabelText(info)
 
     def toggleColors( self, event ):
-        QEAnalysis.Depthmap.colormap = self.b_colormap.GetValue()
+        if self.b_colormap.GetValue() == True:
+            QEAnalysis.Depthmap.colormap = self.originalColor
+        else:
+            QEAnalysis.Depthmap.colormap = 0
         self.i_depthmap.SetBitmap(QEAnalysis.Depthmap.getImage())
 
     def closeViewer( self, event ):

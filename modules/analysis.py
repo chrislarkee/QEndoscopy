@@ -4,15 +4,15 @@ from vispy import scene
 from vispy.visuals.transforms.linear import MatrixTransform
 
 import wx
-#from wx import Bitmap as wxb
 import numpy as np
 from os.path import isfile
 import cv2 
 #from cv2 import convexHull, contourArea, drawContours, cvtColor
 
 import torch as torch
-import torch.nn as nn
+#import torch.nn as nn
 import modules.depthmap as dm
+import modules.logging as log
 
 class VispyPanel():
     @classmethod  
@@ -38,7 +38,7 @@ class VispyPanel():
         self.slicer = scene.visuals.Plane(width=4, height=4, direction='+z', color=(0.1, 0.1, 0.8, 0.4), parent=self.rootNode, name="slicer")
         self.slicer.order = 1   #fixes alpha sorting
         self.allPoints = scene.visuals.Markers(parent=self.rootNode, scaling='scene', alpha=0.5)
-        #self.allPoints.antialias = 0
+        self.allPoints.antialias = 1
         self.planePoints = scene.visuals.Markers(parent=self.rootNode, scaling='fixed')
         self.planePoints.order = -1
 
@@ -64,7 +64,7 @@ class VispyPanel():
         planeDepth = float(sliceDepth / 1000.0)
         slicerMatrix.translate((0, 0, planeDepth))
         self.slicer.transform = slicerMatrix
-
+        
         #optimization: exit early if the user is holding the mouse button on the slider
         if measure == False:
             return
@@ -74,15 +74,17 @@ class VispyPanel():
         self.planePoints.set_data(pos=dm.PointCloud.pointsOnPlane, symbol='disc', size=6, face_color=(.7, .7, 0), 
                                   edge_width_rel=0, edge_color=(1,1,1,0.1)) 
 
-        #measure the shape of the intersecting points
-        print(dm.PointCloud.area)     
+        #update log
+        log.currentEntry.distance = planeDepth
+        log.currentEntry.rotation = (sliceX, sliceY)
+        log.currentEntry.CSarea = dm.PointCloud.area
 
     
     @classmethod
     def resetCam(self):
-        emptyMatrix = MatrixTransform() 
-        self.view.camera.transform = emptyMatrix
-        #self.view.camera.center = (0, 0, 0)
+        self.view.camera.center = (0, 0, 0)
+        #emptyMatrix = MatrixTransform() 
+        #self.view.camera.transform = emptyMatrix
 
         self.view.camera.elevation = 0
         self.view.camera.azimuth   = 0
@@ -104,12 +106,23 @@ class VispyPanel():
 class Depthmap():
     #cache parameters
     bakedDepthmap = False
-    colormap = False            #True = inferno color + black circle, False = raw values but normalized 
+    colormap = 0            
     dataCache = np.zeros(1)    #a slot for last generated depthmap
     minmax = (0,1)
     
     _maskData = np.empty(0)
     _torchReady = False
+
+    def colorEnum(l):
+        if l == 1:
+            return cv2.COLORMAP_INFERNO            
+        elif l == 2:
+            return cv2.COLORMAP_BONE
+        elif l == 3:
+            return cv2.COLORMAP_RAINBOW
+        else:
+            return cv2.COLOR_GRAY2BGR   #aka 0
+        
 
     @classmethod
     def setupTorch(self):
@@ -139,12 +152,13 @@ class Depthmap():
         self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
 
         self.minmax = (self.dataCache.min(), self.dataCache.max())
+        log.currentEntry.minmax = (str(round(self.minmax[0], 4)), str(round(self.minmax[1], 4)))
         #update log too
 
         dm.PointCloud.generatePointCloud(self.dataCache)
-        if self.colormap:
+        if self.colormap != 0:
             colorized = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
-            colorized = cv2.applyColorMap(colorized, cv2.COLORMAP_SPRING)
+            colorized = cv2.applyColorMap(colorized, self.colorEnum(self.colormap))
             colorized = cv2.cvtColor(colorized, cv2.COLOR_BGR2RGB)
             colorized = np.reshape(colorized, (-1,3))
             colorized = (colorized / 255.0).astype(np.float32)
@@ -159,10 +173,10 @@ class Depthmap():
                 self._maskData = np.full((720, 720), 0.0, dtype=np.uint8)
                 cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
 
-        if self.colormap:
+        if self.colormap != 0:
             post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             post = post * self._maskData      #black circle matte
-            post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
+            post = cv2.applyColorMap(post, self.colorEnum(self.colormap))
             post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)
         else:
             post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')            
@@ -190,10 +204,10 @@ class Depthmap():
             self._maskData = np.full((720, 720), 0.0, dtype=np.uint8)
             cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
 
-        if self.colormap:
+        if self.colormap != 0:
             post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             post = post * self._maskData      #black circle matte
-            post = cv2.applyColorMap(post, cv2.COLORMAP_INFERNO)
+            post = cv2.applyColorMap(post, self.colorEnum(self.colormap))
         else:
             post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')            
             post = cv2.cvtColor(post, cv2.COLOR_GRAY2RGB)
