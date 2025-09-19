@@ -189,12 +189,13 @@ class PointCloud:
 
         # Calculate the signed distance from each point to the plane        
         distances = np.dot(self.pointCloudCache - plane_point, plane_normal)
-        slice_mask = np.abs(distances) < 0.002        #define threshold
+        slice_mask = np.abs(distances) < 0.004        #define threshold
         self.pointsOnPlane = self.pointCloudCache[slice_mask]
+        #np.save("points.npy", self.pointsOnPlane)
 
         if len(self.pointsOnPlane) <= 4:
             #self.t_output.SetValue("No points found.")
-            self.area = None
+            self.area = 0
             return
             
         a = np.array([0, 0, 1]) # Use Z-axis            
@@ -215,10 +216,7 @@ class PointCloud:
 
 
     @classmethod
-    def savePointCloud(self, filename):
-        if self.pointCloudCache == None:
-            return
-        
+    def savePointCloud(self, filename):                
         if filename[-4:] == ".npy":
             np.save(filename, self.pointCloudCache)
         elif filename[-4:] == ".xyz":

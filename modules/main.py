@@ -496,7 +496,7 @@ class saveWizard(layouts.SaveWizard):
         #point cloud
         if self.cb_pointcloud.IsChecked():
             fullname = f"{self.outputDirectory.GetPath()}\\{self.t_pointcloudName.GetValue()}{self.c_pointcloudFmt.GetStringSelection()}"
-            QEAnalysis.PointCloud.savePointCloud(fullname)
+            QEAnalysis.Depthmap.savePointCloud(fullname)
             saveCounter += 1
         
         #table

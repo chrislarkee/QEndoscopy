@@ -77,7 +77,7 @@ class VispyPanel():
         #update log
         log.currentEntry.distance = planeDepth
         log.currentEntry.rotation = (sliceX, sliceY)
-        log.currentEntry.CSarea = dm.PointCloud.area
+        log.currentEntry.CSarea = str(round(dm.PointCloud.area,5))
 
     
     @classmethod
@@ -220,4 +220,5 @@ class Depthmap():
 
     @classmethod        
     def savePointCloud(self, filename):
-        pass
+        dm.PointCloud.savePointCloud(filename)
+        
