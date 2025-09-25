@@ -38,7 +38,7 @@ class VispyPanel():
         self.slicer = scene.visuals.Plane(width=4, height=4, direction='+z', color=(0.1, 0.1, 0.8, 0.4), parent=self.rootNode, name="slicer")
         self.slicer.order = 1   #fixes alpha sorting
         self.allPoints = scene.visuals.Markers(parent=self.rootNode, scaling='scene', alpha=0.5)
-        self.allPoints.antialias = 1
+        self.allPoints.antialias = 0
         self.planePoints = scene.visuals.Markers(parent=self.rootNode, scaling='fixed')
         self.planePoints.order = -1
 
@@ -71,13 +71,24 @@ class VispyPanel():
         
         #this function measures and updates the points on the slicing plane
         dm.PointCloud.measureIntersection(slicerMatrix)
-        self.planePoints.set_data(pos=dm.PointCloud.pointsOnPlane, symbol='disc', size=6, face_color=(.7, .7, 0), 
+
+        #caches are updated:
+        self.planePoints.set_data(pos=dm.PointCloud.pointsOnPlane, symbol='diamond', size=7, face_color=(0, 0.843, 0.235), 
                                   edge_width_rel=0, edge_color=(1,1,1,0.1)) 
 
         #update log
         log.currentEntry.distance = planeDepth
         log.currentEntry.rotation = (sliceX, sliceY)
+        log.currentEntry.points = len(dm.PointCloud.pointsOnPlane)
         log.currentEntry.CSarea = str(round(dm.PointCloud.area,5))
+
+    @classmethod
+    def getIntersection(self):
+        truecount = np.count_nonzero(dm.PointCloud.slice_mask)
+        if truecount == 0:
+            return False, dm.PointCloud.slice_mask
+        else:
+            return True, dm.PointCloud.slice_mask
 
     
     @classmethod
@@ -110,7 +121,7 @@ class Depthmap():
     dataCache = np.zeros(1)    #a slot for last generated depthmap
     minmax = (0,1)
     
-    _maskData = np.empty(0)
+    _maskData = np.empty(0)     #the black circle that is sometimes used
     _torchReady = False
 
     def colorEnum(l):
@@ -153,9 +164,9 @@ class Depthmap():
 
         self.minmax = (self.dataCache.min(), self.dataCache.max())
         log.currentEntry.minmax = (str(round(self.minmax[0], 4)), str(round(self.minmax[1], 4)))
-        #update log too
 
         dm.PointCloud.generatePointCloud(self.dataCache)
+        
         if self.colormap != 0:
             colorized = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             colorized = cv2.applyColorMap(colorized, self.colorEnum(self.colormap))

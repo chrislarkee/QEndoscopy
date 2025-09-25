@@ -1,10 +1,9 @@
 import cv2 
+import numpy as np
 from wx import Bitmap as wxb
 from PIL import Image, ImageGrab
 from math import floor
 import os.path as p
-
-#import modules.measurement as QEMeasurement
 
 class EndoVideo:
     def __init__(self, filename: str):
@@ -24,6 +23,7 @@ class EndoVideo:
         self.offset = 0
         self.zoom = 0
         self.guiSize = 500
+        self.overlayEnabled = False
 
         #parameters whose values we can automatically determine
         #https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
@@ -37,6 +37,13 @@ class EndoVideo:
             self._singleImage = cv2.imread(self._path)
             self.res = (self._singleImage.shape[1], self._singleImage.shape[0])   
         self._crop = (0, self.res[1], int(self.res[0] / 2 - self.res[1] / 2), int(self.res[0] / 2 + self.res[1] / 2))  
+
+        self._kernel = np.array([
+            [0, 0, 1, 0, 0],
+            [0, 1, 1, 1, 0],
+            [1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 0],
+            [0, 0, 1, 0, 0]], dtype=np.uint8)
         
     def isSquare(self):
         if self.res[0] == self.res[1]:
@@ -60,6 +67,8 @@ class EndoVideo:
         if ret == False:
             #the end of the video has been reached
             return
+        
+        self.overlayEnabled = False
 
         #update the frame caches and evaluate them
         self.currentFrame = self.vid.get(cv2.CAP_PROP_POS_FRAMES)
@@ -71,12 +80,12 @@ class EndoVideo:
         leftImage = wxb.FromBuffer(self.guiSize, self.guiSize, leftImage.tobytes())       
         return leftImage
 
-    def refreshAnnoation(self):
-        leftImage = cv2.cvtColor(self.imageCache, cv2.COLOR_BGR2RGB)
-        #leftImage = QEMeasurement.addOverlay(leftImage)
-        leftImage = Image.fromarray(leftImage).resize((self.guiSize ,self.guiSize))                     
-        leftImage = wxb.FromBuffer(self.guiSize, self.guiSize, leftImage.tobytes())       
-        return leftImage
+    # def refreshAnnoation(self):
+    #     leftImage = cv2.cvtColor(self.imageCache, cv2.COLOR_BGR2RGB)
+    #     #leftImage = QEMeasurement.addOverlay(leftImage)
+    #     leftImage = Image.fromarray(leftImage).resize((self.guiSize ,self.guiSize))                     
+    #     leftImage = wxb.FromBuffer(self.guiSize, self.guiSize, leftImage.tobytes())       
+    #     return leftImage
 
     def specificFrame(self, frame):
         self.vid.set(cv2.CAP_PROP_POS_FRAMES, int(frame - 1))
@@ -103,6 +112,34 @@ class EndoVideo:
     #     black = Image.new(mode="RGB", size=(self.guiSize, self.guiSize))
     #     blackWX = wxb.FromBuffer(self.guiSize, self.guiSize, black.tobytes())
     #     return blackWX
+
+    def removeOverlay(self):
+        oldImage = cv2.cvtColor(self.imageCache, cv2.COLOR_BGR2RGB)
+        oldImage = Image.fromarray(oldImage).resize((self.guiSize ,self.guiSize))                     
+        oldImage = wxb.FromBuffer(self.guiSize, self.guiSize, oldImage.tobytes())       
+        return oldImage
+
+    def addOverlay(self, points):         
+        #make a blank image buffer
+        canvas = np.zeros((720, 720, 3), dtype=np.uint8)
+        
+        #set the points array to a green color
+        col = np.array([0,215,60], dtype=np.uint8)
+        canvas[points] = col
+
+        #dilate the image to make them more visible
+        canvas = cv2.dilate(canvas, self._kernel, iterations=1)
+        
+        #composite and convert
+        finalImage = cv2.cvtColor(self.imageCache, cv2.COLOR_BGR2RGB)
+        canvas+=finalImage; canvas[canvas<finalImage]=255
+        #finalImage = cv2.addWeighted(finalImage, 1.0, canvas, 0.5, 1.0)
+        finalImage = Image.fromarray(canvas).resize((self.guiSize ,self.guiSize))
+        finalImage = wxb.FromBuffer(self.guiSize, self.guiSize, finalImage.tobytes())
+        
+        #return the modified image
+        return finalImage
+        
 
     def updateCrop(self, offset, zoom):
         self.offset = offset

@@ -1,5 +1,5 @@
 import numpy as np
-from cv2 import convexHull, contourArea, drawContours
+#from cv2 import convexHull, contourArea, drawContours
 
 #ML
 import torch
@@ -106,7 +106,8 @@ class PointCloud:
     FOCAL_LENGTH = 2.5      #mm
     DEPTH_CALIB = 0.918     #adjustment factor for depth (from testing)
     pointCloudCache = None
-    pointsOnPlane = None
+    pointsOnPlane   = None
+    slice_mask      = np.zeros((720,720), dtype=np.bool) #used for the overlay
     
     @classmethod
     def convertPoint(self, pixel_coords, depth):    
@@ -138,17 +139,6 @@ class PointCloud:
 
         return (X, Y, Z)
     
-    @classmethod    
-    def calculateArea(self, contour, depth):
-        newContour = contour.copy().astype('float32')
-        for p in range(0, newContour.shape[0]):
-            coord = (contour[p,0,0].item(), contour[p,0,1].item())
-            newPoint = PointCloud.convertPoint(coord, depth)[:2]
-            newContour[p,0,0] = newPoint[0]
-            newContour[p,0,1] = newPoint[1]
-
-        return contourArea(newContour)
-
     @classmethod
     def generatePointCloud(self, depthmap):
         # Compute the effective focal length in pixels
@@ -182,38 +172,123 @@ class PointCloud:
     @classmethod
     def measureIntersection(self, slicerMatrix):        
         #compute prerequisites for the intersecting points formulas
-        rotation_matrix = np.linalg.inv(slicerMatrix.matrix[:3, :3])
-        plane_normal = rotation_matrix @ np.array([0, 0, 1])
+        plane_normal = np.linalg.inv(slicerMatrix.matrix[:3, :3]) @ np.array([0, 0, 1])
         plane_normal /= np.linalg.norm(plane_normal)
         plane_point = slicerMatrix.matrix[3, :3]
 
         # Calculate the signed distance from each point to the plane        
         distances = np.dot(self.pointCloudCache - plane_point, plane_normal)
-        slice_mask = np.abs(distances) < 0.004        #define threshold
-        self.pointsOnPlane = self.pointCloudCache[slice_mask]
-        #np.save("points.npy", self.pointsOnPlane)
+        self.slice_mask = np.abs(distances) < 0.004        #define threshold here     
+        self.pointsOnPlane = self.pointCloudCache[self.slice_mask]
 
         if len(self.pointsOnPlane) <= 4:
-            #self.t_output.SetValue("No points found.")
             self.area = 0
+            self.slice_mask = np.zeros((720,720), dtype=np.bool)
             return
+
+        #gui's method
+        P1 = np.mean(self.pointsOnPlane, axis=0)
+
+        # Compute distance from point P1 to all other points
+        vectors = self.pointsOnPlane - P1
+        distances = np.linalg.norm(vectors, axis=1)
+
+        min_index = np.argmin(distances)
+        max_index = np.argmax(distances)
+
+        # Point P2 = point nearest to point P1
+        P2 = self.pointsOnPlane[min_index]
+
+        # Point P3 = point farthest from point P1
+        P3 = self.pointsOnPlane[max_index]
+
+        # Compute normal vector
+        V1 = P2 - P1
+        # U1 = cross product of N and V1
+        U1 = np.cross(plane_normal, V1)
+        U1 = U1 / np.linalg.norm(U1)
+
+        # U2 = cross product of N and U1
+        U2 = np.cross(plane_normal, U1)
+        U2 = U2 / np.linalg.norm(U2)
+
+        # Compute coordinates of points on plane defined by U1 and U2
+        # Using vectorization for efficiency instead of a loop
+        V_vectors = self.pointsOnPlane - P1
+        X_point_on_plane = np.dot(V_vectors, U1)
+        Y_point_on_plane = np.dot(V_vectors, U2)
+
+
+        # Translate origin to the center of the cross-section
+        X_max = np.max(X_point_on_plane)
+        Y_max = np.max(Y_point_on_plane)
+        X_min = np.min(X_point_on_plane)
+        Y_min = np.min(Y_point_on_plane)
+        X_new_origin = X_min + 0.5 * (X_max - X_min)
+        Y_new_origin = Y_min + 0.5 * (Y_max - Y_min)
+        X_point_on_plane = X_point_on_plane - X_new_origin
+        Y_point_on_plane = Y_point_on_plane - Y_new_origin
+        Points_on_plane = np.vstack((X_point_on_plane, Y_point_on_plane)).T
+
+
+        # *************************************************************************#
+        #                       SMOOTH THE PERIMETER CURVE                         #
+        # *************************************************************************#
+        # This section re-orders and down-samples the 2D points to create a
+        # smoother, more evenly spaced perimeter.
+
+        radius = 0.05  # Target spacing between points in smooth curve
+
+        # Make a copy of the points to modify
+        remaining_points = Points_on_plane.copy()
+        smooth_perimeter_list = []
+
+        # Start with the first point in the array
+        current_point = remaining_points[0, :]
+        smooth_perimeter_list.append(current_point)
+        remaining_points = np.delete(remaining_points, 0, axis=0)
+
+        while remaining_points.shape[0] > 0:
+            # Find the point in the remaining list closest to the current_point
+            vectors = remaining_points - current_point
+            distances = np.linalg.norm(vectors, axis=1)
             
-        a = np.array([0, 0, 1]) # Use Z-axis            
-        u = np.cross(plane_normal, a)
-        u /= np.linalg.norm(u)
-        v = np.cross(plane_normal, u) # v is already normalized
+            # Get the index of the closest point
+            closest_index = np.argmin(distances)
+            
+            # Update the current point to this new closest point
+            current_point = remaining_points[closest_index, :]
+            
+            # Add this point to the smooth curve
+            smooth_perimeter_list.append(current_point)
+            
+            # Remove all points from the remaining list that are too close to the *new* current_point
+            vectors_from_new_current = remaining_points - current_point
+            distances_from_new_current = np.linalg.norm(vectors_from_new_current, axis=1)
+            
+            # Keep only the points that are far enough away
+            points_to_keep = distances_from_new_current >= radius
+            remaining_points = remaining_points[points_to_keep, :]
 
-        #Project the 3D points onto the new 2D basis (u, v)
-        points_2d = np.dot(self.pointsOnPlane, np.array([u, v]).T)
+        Points_smooth_perimeter = np.array(smooth_perimeter_list)
 
-        #repackage points for CV2 contour
-        contour_points = points_2d.astype(np.float32).reshape(-1, 1, 2)
+        # *************************************************************************#
+        #                            AREA CALCULATION                             #
+        # *************************************************************************#
+        # This section computes the cross-sectional area using the shoelace formula.
+        # The points must be sorted sequentially around the perimeter for this to work,
+        # which was accomplished in the "SMOOTH THE PERIMETER CURVE" step.
 
-        ##which method is better?? They never match
-        self.area = contourArea(contour_points)
-        #hull = convexHull(contour_points)
-        #areaCH = contourArea(hull)        
+        N_points_smooth_curve = Points_smooth_perimeter.shape[0]
+        X_smooth_curve = Points_smooth_perimeter[:, 0]
+        Y_smooth_curve = Points_smooth_perimeter[:, 1]
 
+        # Compute Delta X
+        # This is the difference between each x-coordinate and the next one in the sequence
+        Delta_X = np.roll(X_smooth_curve, -1) - X_smooth_curve
+
+        # Compute area using the shoelace formula variation
+        self.area = np.abs(np.sum(Y_smooth_curve * Delta_X))
 
     @classmethod
     def savePointCloud(self, filename):                

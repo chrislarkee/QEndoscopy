@@ -160,8 +160,9 @@ class main(layouts.MainInterface):
         global vid
         if self.b_playVideo.GetValue() == False:
             self.timer.Stop()
+            #self.slider_distance.SetMax(int(QEAnalysis.Depthmap.minmax[1] * 1000 - 1))
             QEAnalysis.Depthmap.processDepth(vid.imageCache)
-            self.slider_distance.SetMax(int(QEAnalysis.Depthmap.minmax[1] * 1000 - 1))
+            self.slicerDone(wx.IdleEvent)
         else:
             #left frame only
             #QEMeasurement.overlayEnabled = False
@@ -207,13 +208,11 @@ class main(layouts.MainInterface):
     def scrubDone(self,event):
         global vid
         if vid == None:
-            return
-        #right frame only
-        #QEMeasurement.overlayEnabled = False
+            return        
         QEAnalysis.Depthmap.processDepth(vid.imageCache)
         self.slider_distance.SetMin(int(QEAnalysis.Depthmap.minmax[0] * 1000 + 1))
         self.slider_distance.SetMax(int(QEAnalysis.Depthmap.minmax[1] * 1000 - 1))
-        self.slicerChange(event)
+        self.slicerDone(event)
 
     def pickPoint( self, event ):
         #Don't measure if the video is playing
@@ -230,8 +229,7 @@ class main(layouts.MainInterface):
         self.slider_distance.SetValue(int(threshold * 1000))
 
         #trigger the slider change event to update the plane
-        self.slicerChange(event)      
-        #todo: place marker on image
+        self.slicerDone(event)
 
     ###LEFT SIDE FUNCTIONS###
     def jumpFrame( self, event ):
@@ -282,13 +280,24 @@ class main(layouts.MainInterface):
     ###RIGHT SIDE FUNCTIONS###
     def slicerChange( self, event ):
         d, x, y = self.slider_distance.GetValue(), self.slider_planeX.GetValue(), self.slider_planeY.GetValue()
+        vid.overlayEnabled = False        
         QEAnalysis.VispyPanel.changeSlice(d, x, y, measure=False)
 
     def slicerDone( self, event ):
         d, x, y = self.slider_distance.GetValue(), self.slider_planeX.GetValue(), self.slider_planeY.GetValue()
         QEAnalysis.VispyPanel.changeSlice(d, x, y, measure=True)
+
+        overlayUpdate, overlayPoints = QEAnalysis.VispyPanel.getIntersection()
+        if overlayUpdate == True:
+            vid.overlayEnabled = True
+            self.i_Image.SetBitmap(vid.addOverlay(overlayPoints))
+        if overlayUpdate == False and vid.overlayEnabled:
+            vid.overlayEnabled = False
+            self.i_Image.SetBitmap(vid.removeOverlay())
+
         log.currentEntry.distance = d / 1000.0
         log.currentEntry.rotation = (x, y)
+        self.t_statusText.AppendText(f"\nArea: {log.currentEntry.CSarea}")
 
     def changeTool(self, event):
         #self.clearMeasurements(event)   
@@ -298,9 +307,9 @@ class main(layouts.MainInterface):
         #finalize data
         global vid, pixelScale
         log.currentEntry.frame = vid.currentFrame
-        #QEMeasurement.currentEntry.frame = vid.currentFrame       
-        status = self.t_statusText.GetValue() + "\nStored."
-        self.t_statusText.SetValue(status)
+        #QEMeasurement.currentEntry.frame = vid.currentFrame
+    
+        self.t_statusText.AppendText("\nStored.")
         
         # #prepare screenshot metadata
         # screenshotPath = getcwd() + "\\logs\\" + vid.nicename
@@ -330,8 +339,9 @@ class main(layouts.MainInterface):
     def resetPlane( self, event ):
         self.slider_planeX.SetValue(0)
         self.slider_planeY.SetValue(0)        
-        QEAnalysis.VispyPanel.changeSlice(wx.IdleEvent(), self.slider_distance.GetValue())
-        log.currentEntry.rotation = (0,0)
+        QEAnalysis.VispyPanel.changeSlice(self.slider_distance.GetValue(), measure=True)
+        self.t_statusText.SetLabelText("")
+        
 
     def changeVisibility( self, event ):
         QEAnalysis.Depthmap.visibility = self.b_vischoice.GetSelection()
