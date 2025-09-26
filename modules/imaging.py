@@ -154,11 +154,21 @@ class EndoVideo:
         if str.lower(filename[-3:]) == "png":
             cv2.imwrite(filename, self.imageCache, [int(cv2.IMWRITE_PNG_COMPRESSION), 6])
         elif str.lower(filename[-3:]) == "jpg":
-            cv2.imwrite(filename, self.imageCache, [int(cv2.IMWRITE_JPEG_QUALITY), 98])
+            cv2.imwrite(filename, self.imageCache, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        elif str.lower(filename[-4:]) == "webp":
+            cv2.imwrite(filename, self.imageCache, [int(cv2.IMWRITE_WEBP_QUALITY), 80])
 
-def takeScreenshot(bbox, filepath):
-    screenshot = ImageGrab.grab(bbox)
-    screenshot.save(filepath, 'PNG')
+    def grabScreenshot(self, bbox):
+        self.screenshot = ImageGrab.grab(bbox)
+        
+    def saveScreenshot(self, filepath):
+        if str.lower(filepath[-3:]) == "jpg":
+            self.screenshot.save(filepath, 'jpeg', quality=90)
+        elif str.lower(filepath[-3:]) == "png":
+            self.screenshot.save(filepath, 'png', optimize=True)
+        elif filepath[-4:] == "webp":
+            self.screenshot.save(filepath, 'webp')
+        del(self.screenshot)
 
 
 

@@ -117,7 +117,7 @@ class VispyPanel():
 class Depthmap():
     #cache parameters
     bakedDepthmap = False
-    colormap = 0            
+    colormap = 1            
     dataCache = np.zeros(1)    #a slot for last generated depthmap
     minmax = (0,1)
     

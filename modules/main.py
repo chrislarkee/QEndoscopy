@@ -137,7 +137,13 @@ class main(layouts.MainInterface):
 
     def openExporter(self, event):
         self.b_playVideo.SetValue(False)
-         #pop up the savewizard layout, as a modal window
+
+        #cache a screenshot before the popup, incase the user wants to save it
+        rect = self.GetRect() # pixelScale
+        crop = (rect.Left, rect.Top, rect.Right, rect.Bottom)     #wx and PIL use different formats.
+        vid.grabScreenshot(crop)       
+
+        #pop up the savewizard layout, as a modal window
         dlg = saveWizard(self)
         dlg.ShowModal()
     
@@ -311,17 +317,6 @@ class main(layouts.MainInterface):
     
         self.t_statusText.AppendText("\nStored.")
         
-        # #prepare screenshot metadata
-        # screenshotPath = getcwd() + "\\logs\\" + vid.nicename
-        # if isdir(screenshotPath) == False:
-        #     mkdir(screenshotPath)
-        # #shot_filename = screenshotPath + "\\" + vid.nicename + "_" + str(QEMeasurement.counter()).zfill(2) + ".png"
-        # rect = self.GetRect() # pixelScale
-        # crop = (rect.Left, rect.Top, rect.Right, rect.Bottom)     #wx and PIL use different formats.
-
-        #take screenshot
-        #QEImaging.takeScreenshot(crop,shot_filename)       
-
         #commit the log
         log.store()
 
@@ -379,11 +374,18 @@ class settings(layouts.VideoSettings):
         global vid
 
         #sync up initial values
-        self.b_TrimStart.SetMax(vid._maxFrame)
         self.b_TrimStart.SetValue(vid.startFrame)
+        self.b_TrimStart.SetMax(vid._maxFrame)
+        self.s_TrimStart.SetValue(vid.startFrame)
+        self.s_TrimStart.SetMax(vid._maxFrame)
+
         self.b_TrimEnd.SetMin(self.b_TrimStart.GetValue() + 1)
         self.b_TrimEnd.SetMax(vid._maxFrame)
         self.b_TrimEnd.SetValue(vid.endFrame)
+        self.s_TrimEnd.SetMin(self.b_TrimStart.GetValue() + 1)
+        self.s_TrimEnd.SetMax(vid._maxFrame)
+        self.s_TrimEnd.SetValue(vid.endFrame)
+
         self.b_cropOffset.SetValue(vid.offset)
         self.b_zoom.SetValue(vid.zoom)
 
@@ -399,18 +401,35 @@ class settings(layouts.VideoSettings):
         
     def updateTrim( self, event ):
         global vid
-        #refresh the images, if they need to be updated
-        if self.b_TrimStart.GetValue() != vid.startFrame:
-            self.i_TrimStart.SetBitmap(vid.trimmerFrame(self.b_TrimStart.GetValue()))
-            vid.startFrame = self.b_TrimStart.GetValue()
-            self.b_TrimEnd.SetMin(self.b_TrimStart.GetValue() + 1)
-        if self.b_TrimEnd.GetValue() != vid.endFrame:
-            self.i_TrimEnd.SetBitmap(vid.trimmerFrame(self.b_TrimEnd.GetValue()))
-            vid.endFrame = self.b_TrimEnd.GetValue()
 
-        #evaluate the selection's length, in seconds.
-        duration = round((vid.endFrame - vid.startFrame) / 30.0, 2)
-        self.t_duration.SetLabelText("Clip Duration: " + str(duration) + "s.")
+        oldstart = vid.startFrame
+        oldend   = vid.endFrame
+
+        #refresh the images, if they need to be updated
+        if self.b_TrimStart.GetValue() != oldstart:
+            newValue = self.b_TrimStart.GetValue()
+            self.i_TrimStart.SetBitmap(vid.trimmerFrame(newValue))
+            self.s_TrimStart.SetValue(newValue)
+            self.b_TrimEnd.SetMin(newValue + 1)
+            self.s_TrimEnd.SetMin(newValue + 1)
+
+        if self.s_TrimStart.GetValue() != oldstart:
+            newValue = self.s_TrimStart.GetValue()
+            self.i_TrimStart.SetBitmap(vid.trimmerFrame(newValue))
+            self.b_TrimStart.SetValue(newValue)
+            self.b_TrimEnd.SetMin(newValue + 1)
+            self.s_TrimEnd.SetMin(newValue + 1)
+
+        oldend = vid.endFrame
+        if self.b_TrimEnd.GetValue() != oldend:
+            newValue = self.b_TrimEnd.GetValue()
+            self.i_TrimEnd.SetBitmap(vid.trimmerFrame(newValue))
+            self.s_TrimEnd.SetValue(newValue)
+
+        if self.s_TrimEnd.GetValue() != oldend:
+            newValue = self.s_TrimEnd.GetValue()
+            self.i_TrimEnd.SetBitmap(vid.trimmerFrame(newValue))
+            self.b_TrimEnd.SetValue(newValue)
 
     def updateCrop( self, event ):
         global vid
@@ -471,6 +490,7 @@ class saveWizard(layouts.SaveWizard):
         basename = f"{vid.nicename}_f{str(int(vid.currentFrame))}"
         self.t_imageName.SetValue(basename)
         self.t_depthmapName.SetValue(f"{basename}_depth")
+        self.t_screenshotName.SetValue(f"{basename}_ss")
         self.t_pointcloudName.SetValue(f"{basename}_points")
         self.t_measurementName.SetValue(f"{basename}_log")
         self.outputDirectory.SetPath(getcwd() + "\\exports\\")
@@ -501,7 +521,13 @@ class saveWizard(layouts.SaveWizard):
         if self.cb_depthmap.IsChecked():
             fullname = f"{self.outputDirectory.GetPath()}\\{self.t_depthmapName.GetValue()}{self.c_depthmapFmt.GetStringSelection()}"
             QEAnalysis.Depthmap.saveDepthMap(fullname) 
-            saveCounter += 1          
+            saveCounter += 1   
+
+        #screenshot
+        if self.cb_screenshot.IsChecked():
+            fullname = f"{self.outputDirectory.GetPath()}\\{self.t_screenshotName.GetValue()}{self.c_screenshotFmt.GetStringSelection()}"
+            vid.saveScreenshot(fullname)       
+            saveCounter += 1   
 
         #point cloud
         if self.cb_pointcloud.IsChecked():

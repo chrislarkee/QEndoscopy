@@ -8,7 +8,7 @@
 ###########################################################################
 
 import wx
-import wx.xrc
+#import wx.xrc
 import wx.grid
 
 ###########################################################################
@@ -211,7 +211,7 @@ class MainInterface ( wx.Frame ):
 
         b_colormapChoices = [ u"Monochrome", u"Inferno", u"Bone", u"Rainbow" ]
         self.b_colormap = wx.Choice( s_rightcontrols.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_colormapChoices, 0 )
-        self.b_colormap.SetSelection( 0 )
+        self.b_colormap.SetSelection( 1 )
         s_grid3.Add( self.b_colormap, 0, wx.ALL|wx.EXPAND, 5 )
 
 
@@ -356,13 +356,13 @@ class MainInterface ( wx.Frame ):
 class VideoSettings ( wx.Dialog ):
 
     def __init__( self, parent ):
-        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Video Settings Editor", pos = wx.DefaultPosition, size = wx.Size( 1200,750 ), style = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER )
+        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Video Settings Editor", pos = wx.DefaultPosition, size = wx.Size( 1200,704 ), style = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER )
 
         self.SetSizeHints( wx.Size( -1,-1 ), wx.DefaultSize )
 
         s_Trimmer = wx.BoxSizer( wx.VERTICAL )
 
-        fgSizer1 = wx.FlexGridSizer( 3, 2, 0, 0 )
+        fgSizer1 = wx.FlexGridSizer( 0, 2, 0, 0 )
         fgSizer1.AddGrowableCol( 0 )
         fgSizer1.AddGrowableCol( 1 )
         fgSizer1.AddGrowableRow( 1 )
@@ -389,22 +389,25 @@ class VideoSettings ( wx.Dialog ):
 
         fgSizer1.Add( self.i_TrimEnd, 1, wx.ALIGN_CENTER|wx.SHAPED, 5 )
 
-        self.b_TrimStart = wx.Slider( self, wx.ID_ANY, 0, 0, 100, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL|wx.SL_VALUE_LABEL )
+        self.b_TrimStart = wx.Slider( self, wx.ID_ANY, 0, 0, 100, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL )
         fgSizer1.Add( self.b_TrimStart, 1, wx.EXPAND, 5 )
 
-        self.b_TrimEnd = wx.Slider( self, wx.ID_ANY, 100, 0, 100, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL|wx.SL_VALUE_LABEL )
+        self.b_TrimEnd = wx.Slider( self, wx.ID_ANY, 100, 0, 100, wx.DefaultPosition, wx.DefaultSize, wx.SL_HORIZONTAL )
         fgSizer1.Add( self.b_TrimEnd, 1, wx.EXPAND, 5 )
+
+        self.s_TrimStart = wx.SpinCtrl( self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_CENTER_HORIZONTAL|wx.SP_ARROW_KEYS, 0, 10, 0 )
+        fgSizer1.Add( self.s_TrimStart, 1, wx.EXPAND|wx.LEFT|wx.RIGHT, 10 )
+
+        self.s_TrimEnd = wx.SpinCtrl( self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_CENTER_HORIZONTAL|wx.SP_ARROW_KEYS, 0, 10, 0 )
+        fgSizer1.Add( self.s_TrimEnd, 1, wx.EXPAND|wx.LEFT|wx.RIGHT, 10 )
 
 
         s_Trimmer.Add( fgSizer1, 0, wx.ALL|wx.EXPAND, 5 )
 
         self.t_trimTitleLine2 = wx.StaticLine( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
-        s_Trimmer.Add( self.t_trimTitleLine2, 0, wx.EXPAND |wx.ALL, 5 )
+        s_Trimmer.Add( self.t_trimTitleLine2, 0, wx.BOTTOM|wx.EXPAND|wx.TOP, 5 )
 
         bSizer14 = wx.BoxSizer( wx.HORIZONTAL )
-
-
-        bSizer14.Add( ( 0, 0), 1, wx.EXPAND, 5 )
 
         self.t_crop = wx.StaticText( self, wx.ID_ANY, u"Horizontal Offset:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
         self.t_crop.Wrap( -1 )
@@ -412,7 +415,7 @@ class VideoSettings ( wx.Dialog ):
         bSizer14.Add( self.t_crop, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
 
         self.b_cropOffset = wx.SpinCtrl( self, wx.ID_ANY, u"0", wx.Point( -1,-1 ), wx.Size( 150,-1 ), wx.ALIGN_CENTER_HORIZONTAL|wx.SP_ARROW_KEYS, -300, 300, 0 )
-        bSizer14.Add( self.b_cropOffset, 0, wx.ALIGN_CENTER_VERTICAL, 5 )
+        bSizer14.Add( self.b_cropOffset, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
 
 
         bSizer14.Add( ( 0, 0), 1, wx.EXPAND, 5 )
@@ -428,43 +431,15 @@ class VideoSettings ( wx.Dialog ):
 
         bSizer14.Add( ( 0, 0), 1, wx.EXPAND, 5 )
 
-        self.t_speed = wx.StaticText( self, wx.ID_ANY, u"Playback Speed:", wx.DefaultPosition, wx.DefaultSize, wx.ALIGN_RIGHT )
-        self.t_speed.Wrap( -1 )
-
-        bSizer14.Add( self.t_speed, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
-
-        self.b_speed = wx.SpinCtrlDouble( self, wx.ID_ANY, u"1", wx.DefaultPosition, wx.Size( 150,-1 ), wx.ALIGN_CENTER_HORIZONTAL|wx.SP_ARROW_KEYS, 0.1, 4, 1, 0.2 )
-        self.b_speed.SetDigits( 2 )
-        bSizer14.Add( self.b_speed, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
-
-
-        bSizer14.Add( ( 0, 0), 1, wx.EXPAND, 5 )
-
-
-        s_Trimmer.Add( bSizer14, 1, wx.ALL|wx.EXPAND, 5 )
-
-        self.t_trimTitleLine1 = wx.StaticLine( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
-        s_Trimmer.Add( self.t_trimTitleLine1, 0, wx.EXPAND |wx.ALL, 5 )
-
-        bSizer10 = wx.BoxSizer( wx.HORIZONTAL )
-
-        self.t_duration = wx.StaticText( self, wx.ID_ANY, u"Clip Duration:", wx.DefaultPosition, wx.DefaultSize, 0 )
-        self.t_duration.Wrap( -1 )
-
-        bSizer10.Add( self.t_duration, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
-
-
-        bSizer10.Add( ( 0, 0), 1, wx.EXPAND, 5 )
-
         self.b_TrimDone = wx.Button( self, wx.ID_ANY, u"Apply Changes", wx.DefaultPosition, wx.DefaultSize, 0 )
 
         self.b_TrimDone.SetBitmap( wx.ArtProvider.GetBitmap( wx.ART_FILE_SAVE, wx.ART_HELP_BROWSER ) )
-        self.b_TrimDone.SetMinSize( wx.Size( 200,-1 ) )
+        self.b_TrimDone.SetMinSize( wx.Size( 250,-1 ) )
 
-        bSizer10.Add( self.b_TrimDone, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
+        bSizer14.Add( self.b_TrimDone, 0, wx.ALL|wx.EXPAND, 5 )
 
 
-        s_Trimmer.Add( bSizer10, 1, wx.ALL|wx.EXPAND, 5 )
+        s_Trimmer.Add( bSizer14, 1, wx.ALL|wx.SHAPED, 5 )
 
 
         self.SetSizer( s_Trimmer )
@@ -476,6 +451,8 @@ class VideoSettings ( wx.Dialog ):
         self.Bind( wx.EVT_CLOSE, self.doneTrimming )
         self.b_TrimStart.Bind( wx.EVT_SLIDER, self.updateTrim )
         self.b_TrimEnd.Bind( wx.EVT_SLIDER, self.updateTrim )
+        self.s_TrimStart.Bind( wx.EVT_SPINCTRL, self.updateTrim )
+        self.s_TrimEnd.Bind( wx.EVT_SPINCTRL, self.updateTrim )
         self.b_cropOffset.Bind( wx.EVT_SPINCTRL, self.updateCrop )
         self.b_cropOffset.Bind( wx.EVT_TEXT, self.updateCrop )
         self.b_cropOffset.Bind( wx.EVT_TEXT_ENTER, self.updateCrop )
@@ -494,6 +471,8 @@ class VideoSettings ( wx.Dialog ):
 
     def updateTrim( self, event ):
         pass
+
+
 
 
     def updateCrop( self, event ):
@@ -584,7 +563,7 @@ class Measurements ( wx.Dialog ):
 class SaveWizard ( wx.Dialog ):
 
     def __init__( self, parent ):
-        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Batch Exporter", pos = wx.DefaultPosition, size = wx.Size( 652,505 ), style = wx.DEFAULT_DIALOG_STYLE )
+        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Batch Exporter", pos = wx.DefaultPosition, size = wx.Size( 652,577 ), style = wx.DEFAULT_DIALOG_STYLE )
 
         self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 
@@ -605,7 +584,7 @@ class SaveWizard ( wx.Dialog ):
         self.t_imageName = wx.TextCtrl( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
         saveSizer2.Add( self.t_imageName, 1, 0, 5 )
 
-        c_imageFmtChoices = [ u".jpg", u".png" ]
+        c_imageFmtChoices = [ u".jpg", u".png", u".webp" ]
         self.c_imageFmt = wx.Choice( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_imageFmtChoices, 0 )
         self.c_imageFmt.SetSelection( 0 )
         saveSizer2.Add( self.c_imageFmt, 0, 0, 5 )
@@ -628,6 +607,25 @@ class SaveWizard ( wx.Dialog ):
 
 
         saveSizer.Add( saveSizer3, 0, wx.ALL|wx.EXPAND, 5 )
+
+        saveSizer6 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Application Screenshot" ), wx.HORIZONTAL )
+
+        self.cb_screenshot = wx.CheckBox( saveSizer6.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer6.Add( self.cb_screenshot, 0, wx.ALL, 5 )
+
+        self.t_screenshotName = wx.TextCtrl( saveSizer6.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+        saveSizer6.Add( self.t_screenshotName, 1, 0, 5 )
+
+        c_screenshotFmtChoices = [ u".png", u".jpg", u".webp" ]
+        self.c_screenshotFmt = wx.Choice( saveSizer6.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_screenshotFmtChoices, 0 )
+        self.c_screenshotFmt.SetSelection( 0 )
+        saveSizer6.Add( self.c_screenshotFmt, 0, 0, 5 )
+
+
+        saveSizer.Add( saveSizer6, 1, wx.ALL|wx.EXPAND, 5 )
+
+
+        saveSizer.Add( ( 0, 0), 1, wx.EXPAND, 5 )
 
         saveSizer4 = wx.StaticBoxSizer( wx.StaticBox( self, wx.ID_ANY, u"Point Cloud Data" ), wx.HORIZONTAL )
 
