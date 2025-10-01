@@ -535,8 +535,22 @@ class Measurements ( wx.Dialog ):
         self.grid.SetDefaultCellAlignment( wx.ALIGN_LEFT, wx.ALIGN_CENTER )
         s_exportMain.Add( self.grid, 1, wx.EXPAND|wx.LEFT|wx.RIGHT, 5 )
 
-        self.b_close = wx.Button( self, wx.ID_ANY, u"OK", wx.DefaultPosition, wx.DefaultSize, 0 )
-        s_exportMain.Add( self.b_close, 0, wx.ALIGN_RIGHT|wx.ALL, 5 )
+        s_exportControls = wx.BoxSizer( wx.HORIZONTAL )
+
+        self.b_clearAll = wx.Button( self, wx.ID_ANY, u"Reset Table", wx.DefaultPosition, wx.DefaultSize, 0 )
+        s_exportControls.Add( self.b_clearAll, 0, wx.ALL, 5 )
+
+        self.b_Clear1 = wx.Button( self, wx.ID_ANY, u"Delete Last Entry", wx.DefaultPosition, wx.DefaultSize, 0 )
+        s_exportControls.Add( self.b_Clear1, 0, wx.ALL, 5 )
+
+
+        s_exportControls.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+
+        self.b_close = wx.Button( self, wx.ID_ANY, u"Close Window", wx.DefaultPosition, wx.DefaultSize, 0 )
+        s_exportControls.Add( self.b_close, 0, wx.ALL, 5 )
+
+
+        s_exportMain.Add( s_exportControls, 0, wx.EXPAND, 5 )
 
 
         self.SetSizer( s_exportMain )
@@ -545,6 +559,8 @@ class Measurements ( wx.Dialog ):
         self.Centre( wx.BOTH )
 
         # Connect Events
+        self.b_clearAll.Bind( wx.EVT_BUTTON, self.clearAll )
+        self.b_Clear1.Bind( wx.EVT_BUTTON, self.clear1 )
         self.b_close.Bind( wx.EVT_BUTTON, self.closeTable )
 
     def __del__( self ):
@@ -552,6 +568,12 @@ class Measurements ( wx.Dialog ):
 
 
     # Virtual event handlers, override them in your derived class
+    def clearAll( self, event ):
+        pass
+
+    def clear1( self, event ):
+        pass
+
     def closeTable( self, event ):
         pass
 
@@ -563,7 +585,7 @@ class Measurements ( wx.Dialog ):
 class SaveWizard ( wx.Dialog ):
 
     def __init__( self, parent ):
-        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Batch Exporter", pos = wx.DefaultPosition, size = wx.Size( 652,577 ), style = wx.DEFAULT_DIALOG_STYLE )
+        wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Batch Exporter", pos = wx.DefaultPosition, size = wx.Size( 599,583 ), style = wx.DEFAULT_DIALOG_STYLE )
 
         self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 
@@ -584,7 +606,7 @@ class SaveWizard ( wx.Dialog ):
         self.t_imageName = wx.TextCtrl( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
         saveSizer2.Add( self.t_imageName, 1, 0, 5 )
 
-        c_imageFmtChoices = [ u".jpg", u".png", u".webp" ]
+        c_imageFmtChoices = [ u".webp", u".png", u".jpg" ]
         self.c_imageFmt = wx.Choice( saveSizer2.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_imageFmtChoices, 0 )
         self.c_imageFmt.SetSelection( 0 )
         saveSizer2.Add( self.c_imageFmt, 0, 0, 5 )
@@ -616,7 +638,7 @@ class SaveWizard ( wx.Dialog ):
         self.t_screenshotName = wx.TextCtrl( saveSizer6.GetStaticBox(), wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
         saveSizer6.Add( self.t_screenshotName, 1, 0, 5 )
 
-        c_screenshotFmtChoices = [ u".png", u".jpg", u".webp" ]
+        c_screenshotFmtChoices = [ u".webp", u".png", u".jpg" ]
         self.c_screenshotFmt = wx.Choice( saveSizer6.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, c_screenshotFmtChoices, 0 )
         self.c_screenshotFmt.SetSelection( 0 )
         saveSizer6.Add( self.c_screenshotFmt, 0, 0, 5 )

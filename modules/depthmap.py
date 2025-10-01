@@ -1,5 +1,4 @@
 import numpy as np
-#from cv2 import convexHull, contourArea, drawContours
 
 #ML
 import torch
@@ -107,7 +106,7 @@ class PointCloud:
     DEPTH_CALIB = 0.918     #adjustment factor for depth (from testing)
     pointCloudCache = None
     pointsOnPlane   = None
-    slice_mask      = np.zeros((720,720), dtype=np.bool) #used for the overlay
+    _slice_mask      = np.zeros((720,720), dtype=np.bool) #used for the overlay
     
     @classmethod
     def convertPoint(self, pixel_coords, depth):    
@@ -178,12 +177,12 @@ class PointCloud:
 
         # Calculate the signed distance from each point to the plane        
         distances = np.dot(self.pointCloudCache - plane_point, plane_normal)
-        self.slice_mask = np.abs(distances) < 0.004        #define threshold here     
-        self.pointsOnPlane = self.pointCloudCache[self.slice_mask]
+        self._slice_mask = np.abs(distances) < 0.004        #define threshold here     
+        self.pointsOnPlane = self.pointCloudCache[self._slice_mask]
 
         if len(self.pointsOnPlane) <= 4:
             self.area = 0
-            self.slice_mask = np.zeros((720,720), dtype=np.bool)
+            self._slice_mask = np.zeros((720,720), dtype=np.bool)
             return
 
         #gui's method

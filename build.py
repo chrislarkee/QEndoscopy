@@ -5,6 +5,7 @@ build.py - Scripted Nuitka build for the project.
 
 import subprocess
 import shutil
+import sys
 
 def run_nuitka(entrypoint: str):
     cmd = [
@@ -18,6 +19,7 @@ def run_nuitka(entrypoint: str):
         "--include-module=wx._xml",
         "--include-data-dir=includes=.",
         "--module-parameter=torch-disable-jit=no",  
+        "--output-dir=..\\build",
         entrypoint,
     ]
     
@@ -25,7 +27,7 @@ def run_nuitka(entrypoint: str):
     subprocess.run(cmd, check=True)
     
     #copy vispy.glsl manually? It segfaults without this    
-    shutil.copytree("..\venv\Lib\site-packages\vispy\glsl", "QEndoscopy.dist\vispy\glsl")
+    shutil.copytree("..\\venv\\Lib\\site-packages\\vispy\\glsl", "..\\build\\QEndoscopy.dist\\vispy\\glsl")
 
 
 if __name__ == "__main__":

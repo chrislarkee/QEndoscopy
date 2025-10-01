@@ -57,6 +57,10 @@ def startup():
     _entryCounter = -1
     currentEntry = LogEntry()
 
+def clearLast():
+    global _database
+    removed_item = _database.popitem()
+
 def generatePreview():
     global _database
 

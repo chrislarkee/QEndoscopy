@@ -1,3 +1,5 @@
+#from os import environ
+#environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 import cv2 
 import numpy as np
 from wx import Bitmap as wxb
@@ -33,9 +35,12 @@ class EndoVideo:
         #QEMeasurement.framerate = self._rate
         self._maxFrame = self.endFrame                                  #the end of the file        
         self.res = (int(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        if self.endFrame == 1:  #hack to determine if he have a video or a photo
+        if self.endFrame <= 2:  #hack to determine if he have a video or a photo
+            self._maxFrame = 1
             self._singleImage = cv2.imread(self._path)
-            self.res = (self._singleImage.shape[1], self._singleImage.shape[0])   
+            self.res = (self._singleImage.shape[1], self._singleImage.shape[0])
+        else:
+            self._singleImage = None
         self._crop = (0, self.res[1], int(self.res[0] / 2 - self.res[1] / 2), int(self.res[0] / 2 + self.res[1] / 2))  
 
         self._kernel = np.array([

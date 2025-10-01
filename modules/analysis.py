@@ -7,11 +7,7 @@ import wx
 import numpy as np
 from os.path import isfile
 import cv2 
-#from cv2 import convexHull, contourArea, drawContours, cvtColor
 
-import torch as torch
-#import torch.nn as nn
-import modules.depthmap as dm
 import modules.logging as log
 
 class VispyPanel():
@@ -80,15 +76,15 @@ class VispyPanel():
         log.currentEntry.distance = planeDepth
         log.currentEntry.rotation = (sliceX, sliceY)
         log.currentEntry.points = len(dm.PointCloud.pointsOnPlane)
-        log.currentEntry.CSarea = str(round(dm.PointCloud.area,5))
+        log.currentEntry.CSarea = str(round(dm.PointCloud.area,6))
 
     @classmethod
     def getIntersection(self):
-        truecount = np.count_nonzero(dm.PointCloud.slice_mask)
+        truecount = np.count_nonzero(dm.PointCloud._slice_mask)
         if truecount == 0:
-            return False, dm.PointCloud.slice_mask
+            return False, dm.PointCloud._slice_mask
         else:
-            return True, dm.PointCloud.slice_mask
+            return True, dm.PointCloud._slice_mask
 
     
     @classmethod
@@ -116,7 +112,7 @@ class VispyPanel():
 
 class Depthmap():
     #cache parameters
-    bakedDepthmap = False
+    _bakedDepthmap = False
     colormap = 1            
     dataCache = np.zeros(1)    #a slot for last generated depthmap
     minmax = (0,1)
@@ -136,7 +132,21 @@ class Depthmap():
         
 
     @classmethod
-    def setupTorch(self):
+    def setupTorch(self, exrMap=None):        
+        global dm
+        import modules.depthmap as dm
+
+        if exrMap != None:
+            #load baked depthmap
+            self.dataCache = cv2.imread(exrMap, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_ANYDEPTH)
+            self._bakedDepthmap = True
+            self._torchReady = True
+            return
+        
+        global torch
+        import torch as torch
+        #import torch.nn as nn
+        
         #initialize Depthmap NN
         self.model = dm.DepthUtilities.build_unet()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -146,23 +156,27 @@ class Depthmap():
             self.model.load_state_dict(torch.load("model.pth", map_location=self.device, weights_only=True))
         self.model.eval()
         self.model.to(self.device)
-        self._torchReady = True    
+        self._torchReady = True
+        self._bakedDepthmap = False
 
     @classmethod
     def processDepth(self, image):
         if self._torchReady == False:
             self.setupTorch()
 
-        nnInput = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        if self._bakedDepthmap == False:
+            nnInput = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        if nnInput.shape[0] != 720:
-            nnInput = cv2.resize(nnInput,(720,720))
-        nnInput = torch.from_numpy(nnInput[np.newaxis, ...]).float()/255 - 0.5
-        nnInput = nnInput.unsqueeze(1).to(self.device)
-        self.dataCache = self.model(nnInput)
-        self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
+            if nnInput.shape[0] != 720:
+                nnInput = cv2.resize(nnInput,(720,720))
+            nnInput = torch.from_numpy(nnInput[np.newaxis, ...]).float()/255 - 0.5
+            nnInput = nnInput.unsqueeze(1).to(self.device)
+            self.dataCache = self.model(nnInput)
+            self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
 
         self.minmax = (self.dataCache.min(), self.dataCache.max())
+        if self.minmax[1] > 20:
+            self.minmax[1] = 20
         log.currentEntry.minmax = (str(round(self.minmax[0], 4)), str(round(self.minmax[1], 4)))
 
         dm.PointCloud.generatePointCloud(self.dataCache)

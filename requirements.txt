@@ -27,5 +27,5 @@ typing_extensions==4.14.1
 tzdata==2025.2
 vispy==0.15.2
 wxPython==4.2.3
-XlsxWriter==3.2.2
+xlsxwriter==3.2.9
 zstandard==0.24.0
