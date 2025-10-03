@@ -194,9 +194,11 @@ class MainInterface ( wx.Frame ):
 
         s_grid3.Add( self.b_showmap, 0, wx.ALL|wx.EXPAND, 5 )
 
-        b_vischoiceChoices = [ u"Show All", u"Hide Slicing Plane", u"Show Selection Only" ]
+        b_vischoiceChoices = [ u"Show All", u"Hide Slicing Plane", u"Selection Only" ]
         self.b_vischoice = wx.Choice( s_rightcontrols.GetStaticBox(), wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, b_vischoiceChoices, 0 )
         self.b_vischoice.SetSelection( 0 )
+        self.b_vischoice.Enable( False )
+
         s_grid3.Add( self.b_vischoice, 0, wx.ALL|wx.EXPAND, 5 )
 
         self.b_resetPlane = wx.Button( s_rightcontrols.GetStaticBox(), wx.ID_ANY, u"Reset Tools", wx.DefaultPosition, wx.DefaultSize, 0 )
@@ -560,7 +562,7 @@ class Measurements ( wx.Dialog ):
 
         # Connect Events
         self.b_clearAll.Bind( wx.EVT_BUTTON, self.clearAll )
-        self.b_Clear1.Bind( wx.EVT_BUTTON, self.clear1 )
+        self.b_Clear1.Bind( wx.EVT_BUTTON, self.clearLast )
         self.b_close.Bind( wx.EVT_BUTTON, self.closeTable )
 
     def __del__( self ):
@@ -571,7 +573,7 @@ class Measurements ( wx.Dialog ):
     def clearAll( self, event ):
         pass
 
-    def clear1( self, event ):
+    def clearLast( self, event ):
         pass
 
     def closeTable( self, event ):

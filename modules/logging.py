@@ -59,7 +59,8 @@ def startup():
 
 def clearLast():
     global _database
-    removed_item = _database.popitem()
+    if (len(_database) > 0):
+        removed_item = _database.popitem()
 
 def generatePreview():
     global _database

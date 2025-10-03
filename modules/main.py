@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 import wx
 import wx.grid
-from os import startfile, getcwd, mkdir, environ
+from os import startfile, getcwd, mkdir
 from os.path import isfile, isdir
 import ctypes
 
 #sys.path.append("..")
-environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 import modules.layouts as layouts       #all gui views.
 import modules.imaging as QEImaging     #openCV image processing
 import modules.analysis as QEAnalysis   #ML depth analysis
@@ -90,16 +89,19 @@ class main(layouts.MainInterface):
                 progress.Destroy()
                 wx.MessageBox('The file does not exist.', 'Error.', wx.OK | wx.ICON_ERROR)
                 return
-            vid = QEImaging.EndoVideo(autoload)           
+            vid = QEImaging.EndoVideo(autoload)    
+
+        progress.Pulse(newmsg="Loading Depth Libraries...")
+        QEAnalysis.Depthmap.setupTorch()
 
         progress.Pulse(newmsg="Starting Depth Map...")
         #check if there's a depth map available
-        depthFile = vid._path[0:-4] + ".exr"
-        if isfile(depthFile):                     
-            self.t_statusText.AppendText(f"Baked depth map file detected:\n{depthFile}\n")
-            QEAnalysis.Depthmap.setupTorch(exrMap=depthFile)   
-        else: 
-            QEAnalysis.Depthmap.setupTorch()   
+        depthFile = vid._path[0:-4] + "_depth.mp4"
+        if isfile(depthFile):
+            #vispy = QEAnalysis.Depthmap.bakedDepthmap=True                     
+            wx.MessageBox('A depth file was found and will be used instead of evaluation depth.', 'Error.', wx.OK | wx.ICON_ERROR)
+        #else: 
+             #vispy = QEDepth.Depth(None, vid)        
         
         #apply changes from the loaded video to the gui
         progress.Pulse(newmsg="Processing metadata...")
@@ -107,7 +109,7 @@ class main(layouts.MainInterface):
 
         #enable the locked out buttons
         self.SetTitle("Quantitative Endoscopy: " + vid.nicename)
-        self.t_statusText.AppendText(f"{vid.nicename}: {vid.getLength()}\n")     #the title of the window
+        self.t_statusText.WriteText(vid.nicename + vid.getLength())     #the title of the window
         self.slider_time.SetMax(vid.endFrame)                           #the limit of the main slider
         self.b_playVideo.Enable(True)
         self.b_showSettings.Enable(True)
@@ -116,13 +118,12 @@ class main(layouts.MainInterface):
         self.b_openExporter.Enable(True)
         self.b_openViewer.Enable(True)
         self.b_jumpFrame.Enable(True)
+        self.b_vischoice.Enable(True)
         vid.guiSize = self.i_Image.GetSize().Width
                 
         progress.Pulse(newmsg="Processing Frame 1...")
         self.frameNext(wx.IdleEvent())  #load the first frame
         self.slider_distance.SetValue(self.slider_distance.GetMax())
-
-        progress.Pulse(newmsg="Starting up slicer...")
         self.slicerDone(wx.IdleEvent())
         
         progress.Destroy()
@@ -231,7 +232,7 @@ class main(layouts.MainInterface):
         
         mouseCoords = event.GetPosition()
         targetCoords = (int(mouseCoords[0] / vid.guiSize * 720), int(mouseCoords[1] / vid.guiSize * 720))
-        threshold = QEAnalysis.Depthmap.dataCache[targetCoords[1]][targetCoords[0]]
+        threshold = QEAnalysis.Depthmap.depth_Cache[targetCoords[1]][targetCoords[0]]
         self.slider_distance.SetValue(int(threshold * 1000))
 
         #trigger the slider change event to update the plane
@@ -277,8 +278,7 @@ class main(layouts.MainInterface):
         
         textPayload = wx.TextDataObject(text=self.t_statusText.GetValue())
         if wx.TheClipboard.Open():
-            clipText = wx.TextDataObject(log.currentEntry.CSarea)
-            wx.TheClipboard.SetData(clipText)
+            wx.TheClipboard.SetData(textPayload)
             wx.TheClipboard.Close()
         else:
             wx.MessageBox("Unable to open the clipboard", "Error")
@@ -304,7 +304,7 @@ class main(layouts.MainInterface):
 
         log.currentEntry.distance = d / 1000.0
         log.currentEntry.rotation = (x, y)
-        self.t_statusText.AppendText(f"Area: {log.currentEntry.CSarea}\n")
+        self.t_statusText.AppendText(f"\nArea: {log.currentEntry.CSarea}")
 
     def changeTool(self, event):
         #self.clearMeasurements(event)   
@@ -316,7 +316,7 @@ class main(layouts.MainInterface):
         log.currentEntry.frame = vid.currentFrame
         #QEMeasurement.currentEntry.frame = vid.currentFrame
     
-        self.t_statusText.AppendText("Stored.\n")
+        self.t_statusText.AppendText("\nStored.")
         
         #commit the log
         log.store()
@@ -336,12 +336,10 @@ class main(layouts.MainInterface):
         self.slider_planeX.SetValue(0)
         self.slider_planeY.SetValue(0)        
         QEAnalysis.VispyPanel.changeSlice(self.slider_distance.GetValue(), measure=True)
-        self.t_statusText.Clear()
-        
+        self.t_statusText.SetLabelText("")
 
-    def changeVisibility( self, event ):
-        QEAnalysis.Depthmap.visibility = self.b_vischoice.GetSelection()
-        QEAnalysis.Depthmap.processDepth(vid.imageCache)
+    def changeVisibility( self, event ):     
+        QEAnalysis.VispyPanel.updateVisibility(self.b_vischoice.GetSelection())
 
     def setColors( self, event ):
         QEAnalysis.Depthmap.colormap = self.b_colormap.GetSelection()
@@ -421,7 +419,6 @@ class settings(layouts.VideoSettings):
             self.b_TrimEnd.SetMin(newValue + 1)
             self.s_TrimEnd.SetMin(newValue + 1)
 
-        oldend = vid.endFrame
         if self.b_TrimEnd.GetValue() != oldend:
             newValue = self.b_TrimEnd.GetValue()
             self.i_TrimEnd.SetBitmap(vid.trimmerFrame(newValue))
@@ -457,18 +454,19 @@ class settings(layouts.VideoSettings):
         self.EndModal(wx.ID_OK)
 
 
-class viewMeasurements(layouts.Measurements):  
+class viewMeasurements(layouts.Measurements):
     def __init__(self, parent):
         #initialize parent class
         layouts.Measurements.__init__(self,parent)
-        self.fillTable()
+        self.fillTable() 
 
-    def fillTable(self):
+    def fillTable(self):               
         data = log.generatePreview()
         if (len(data) < 1):
             return
         
         #put data into the grid
+        self.grid.ClearGrid()
         self.grid.AppendRows(len(data))
         for row in range(0, len(data)):        
             for col in range(0,8):
@@ -476,13 +474,14 @@ class viewMeasurements(layouts.Measurements):
                 self.grid.SetCellValue(row + 1, col, cellContents)
 
         self.grid.AutoSizeColumns()
-        self.Layout()
+        self.Layout()  
 
-    def clearAll( self, event ):
+    def clearAll(self, event):
         log.startup()
-        self.fillTable()
+        self.grid.ClearGrid()
+        #self.Layout()
 
-    def clear1( self, event ):
+    def clearLast(self, event):
         log.clearLast()
         self.fillTable()
 
@@ -537,9 +536,7 @@ class saveWizard(layouts.SaveWizard):
         if self.cb_screenshot.IsChecked():
             fullname = f"{self.outputDirectory.GetPath()}\\{self.t_screenshotName.GetValue()}{self.c_screenshotFmt.GetStringSelection()}"
             vid.saveScreenshot(fullname)       
-            saveCounter += 1
-        else:
-            vid.saveScreenshot("")  #this clears a cache
+            saveCounter += 1   
 
         #point cloud
         if self.cb_pointcloud.IsChecked():

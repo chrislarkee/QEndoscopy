@@ -167,7 +167,7 @@ class PointCloud:
         out[:,:,2] =  depthmap * np.cos(theta)
         
         self.pointCloudCache = out
-    
+
     @classmethod
     def measureIntersection(self, slicerMatrix):        
         #compute prerequisites for the intersecting points formulas
@@ -290,11 +290,16 @@ class PointCloud:
         self.area = np.abs(np.sum(Y_smooth_curve * Delta_X))
 
     @classmethod
-    def savePointCloud(self, filename):                
+    def savePointCloud(self, filename, visibility=0):                
+        if visibility == 2:
+            points = self.pointsOnPlane
+        else:
+            points = self.pointCloudCache
+
         if filename[-4:] == ".npy":
-            np.save(filename, self.pointCloudCache)
+            np.save(filename, points)
         elif filename[-4:] == ".xyz":
-            xyzData = np.reshape(self.pointCloudCache, (-1,3))
+            xyzData = np.reshape(points, (-1,3))
             np.savetxt(filename, xyzData, fmt='%.6f', delimiter=' ')
 
     @classmethod    

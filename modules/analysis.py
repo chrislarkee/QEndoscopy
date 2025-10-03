@@ -110,12 +110,30 @@ class VispyPanel():
         #hack to fix vispy canvas size when embedded in wx
         self.canvas.size = (panelsize.x, panelsize.y)
 
+    @classmethod
+    def updateVisibility(self, status):
+        Depthmap.visibility = status
+        #turn everything on by default
+        self.slicer.visible = True
+        self.allPoints.visible = True
+        self.planePoints.visible = True
+
+        if status == 1:
+            #hide the slicing plane
+            self.slicer.visible = False
+
+        if status == 2:
+            self.slicer.visible = False
+            self.allPoints.visible = False
+
+
 class Depthmap():
     #cache parameters
     _bakedDepthmap = False
     colormap = 1            
-    dataCache = np.zeros(1)    #a slot for last generated depthmap
+    depth_Cache = np.zeros(1)    #a slot for last generated depthmap
     minmax = (0,1)
+    visibility = 0
     
     _maskData = np.empty(0)     #the black circle that is sometimes used
     _torchReady = False
@@ -138,7 +156,7 @@ class Depthmap():
 
         if exrMap != None:
             #load baked depthmap
-            self.dataCache = cv2.imread(exrMap, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_ANYDEPTH)
+            self.depth_Cache = cv2.imread(exrMap, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_ANYDEPTH)
             self._bakedDepthmap = True
             self._torchReady = True
             return
@@ -171,18 +189,18 @@ class Depthmap():
                 nnInput = cv2.resize(nnInput,(720,720))
             nnInput = torch.from_numpy(nnInput[np.newaxis, ...]).float()/255 - 0.5
             nnInput = nnInput.unsqueeze(1).to(self.device)
-            self.dataCache = self.model(nnInput)
-            self.dataCache = self.dataCache.squeeze().detach().cpu().numpy()
+            self.depth_Cache = self.model(nnInput)
+            self.depth_Cache = self.depth_Cache.squeeze().detach().cpu().numpy()
 
-        self.minmax = (self.dataCache.min(), self.dataCache.max())
+        self.minmax = (self.depth_Cache.min(), self.depth_Cache.max())
         if self.minmax[1] > 20:
             self.minmax[1] = 20
         log.currentEntry.minmax = (str(round(self.minmax[0], 4)), str(round(self.minmax[1], 4)))
 
-        dm.PointCloud.generatePointCloud(self.dataCache)
+        dm.PointCloud.generatePointCloud(self.depth_Cache)
         
         if self.colormap != 0:
-            colorized = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
+            colorized = np.interp(self.depth_Cache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             colorized = cv2.applyColorMap(colorized, self.colorEnum(self.colormap))
             colorized = cv2.cvtColor(colorized, cv2.COLOR_BGR2RGB)
             colorized = np.reshape(colorized, (-1,3))
@@ -199,12 +217,12 @@ class Depthmap():
                 cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
 
         if self.colormap != 0:
-            post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
+            post = np.interp(self.depth_Cache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             post = post * self._maskData      #black circle matte
             post = cv2.applyColorMap(post, self.colorEnum(self.colormap))
             post = cv2.cvtColor(post, cv2.COLOR_BGR2RGB)
         else:
-            post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')            
+            post = np.interp(self.depth_Cache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')            
             post = cv2.cvtColor(post, cv2.COLOR_GRAY2RGB)
             np.clip(post, 0, 254, post)
 
@@ -218,10 +236,10 @@ class Depthmap():
     def saveDepthMap(self, filename):
         #data formats
         if str.lower(filename[-3:]) == "npy":
-            np.save(filename, self.dataCache)
+            np.save(filename, self.depth_Cache)
             return
         if str.lower(filename[-3:]) == "csv":
-            np.savetxt(filename, self.dataCache, fmt="%.5", delimiter=",")            
+            np.savetxt(filename, self.depth_Cache, fmt="%.5", delimiter=",")            
             return
         
         #image formats
@@ -230,11 +248,11 @@ class Depthmap():
             cv2.circle(self._maskData, (360, 360), 352, 1.0, -1, lineType=cv2.LINE_AA)
 
         if self.colormap != 0:
-            post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
+            post = np.interp(self.depth_Cache, (self.minmax[0], self.minmax[1]), (255,0)).astype('uint8')
             post = post * self._maskData      #black circle matte
             post = cv2.applyColorMap(post, self.colorEnum(self.colormap))
         else:
-            post = np.interp(self.dataCache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')            
+            post = np.interp(self.depth_Cache, (self.minmax[0], self.minmax[1] * 0.99), (0,255)).astype('uint8')            
             post = cv2.cvtColor(post, cv2.COLOR_GRAY2RGB)
             np.clip(post, 0, 254, post)
 
@@ -245,5 +263,5 @@ class Depthmap():
 
     @classmethod        
     def savePointCloud(self, filename):
-        dm.PointCloud.savePointCloud(filename)
+        dm.PointCloud.savePointCloud(filename, self.visibility)
         
