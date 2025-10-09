@@ -10,7 +10,7 @@ import cv2
 
 import modules.logging as log
 
-class VispyPanel():
+class VispyPCD():
     @classmethod  
     def startup(self, panel):
         #start up the vispy scene
@@ -156,7 +156,11 @@ class Depthmap():
 
         if exrMap != None:
             #load baked depthmap
-            self.depth_Cache = cv2.imread(exrMap, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_ANYDEPTH)
+            from openexr_numpy import imread as EXRread
+            try:
+                self.depth_Cache = EXRread(exrMap, "V")
+            except:
+                self.depth_Cache = EXRread(exrMap, "R")
             self._bakedDepthmap = True
             self._torchReady = True
             return
@@ -205,9 +209,9 @@ class Depthmap():
             colorized = cv2.cvtColor(colorized, cv2.COLOR_BGR2RGB)
             colorized = np.reshape(colorized, (-1,3))
             colorized = (colorized / 255.0).astype(np.float32)
-            VispyPanel.updatePoints(dm.PointCloud.pointCloudCache, colorized)
+            VispyPCD.updatePoints(dm.PointCloud.pointCloudCache, colorized)
         else:
-            VispyPanel.updatePoints(dm.PointCloud.pointCloudCache)
+            VispyPCD.updatePoints(dm.PointCloud.pointCloudCache)
   
     @classmethod        
     def getImage(self, guiSize=720):

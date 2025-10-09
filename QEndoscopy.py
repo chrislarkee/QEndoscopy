@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 import wx
 from sys import argv
-
-#frames
-#does this reduce flickering?
-#USE_BUFFERED_DC = True
+from os import environ
+environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
 if __name__ == '__main__':
     #print("Loading the app:")

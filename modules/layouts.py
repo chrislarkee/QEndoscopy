@@ -65,10 +65,10 @@ class MainInterface ( wx.Frame ):
         s_mainarea.SetFlexibleDirection( wx.HORIZONTAL )
         s_mainarea.SetNonFlexibleGrowMode( wx.FLEX_GROWMODE_SPECIFIED )
 
-        self.i_Image = wx.StaticBitmap( self, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.Size( 10,10 ), wx.FULL_REPAINT_ON_RESIZE )
-        self.i_Image.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BACKGROUND ) )
+        self.vidPanel = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.Size( 10,10 ), wx.FULL_REPAINT_ON_RESIZE )
+        self.vidPanel.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BACKGROUND ) )
 
-        s_mainarea.Add( self.i_Image, 1, wx.ALIGN_CENTER_HORIZONTAL|wx.SHAPED, 0 )
+        s_mainarea.Add( self.vidPanel, 1, wx.ALIGN_CENTER_HORIZONTAL|wx.SHAPED, 0 )
 
         self.vispypanel = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.Size( -1,-1 ), wx.TAB_TRAVERSAL )
         self.vispypanel.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BACKGROUND ) )
@@ -240,8 +240,8 @@ class MainInterface ( wx.Frame ):
         self.b_openExporter.Bind( wx.EVT_BUTTON, self.openExporter )
         self.b_openViewer.Bind( wx.EVT_BUTTON, self.openViewer )
         self.b_help.Bind( wx.EVT_BUTTON, self.openHelp )
-        self.i_Image.Bind( wx.EVT_LEFT_DOWN, self.pickPoint )
-        self.i_Image.Bind( wx.EVT_RIGHT_DOWN, self.clearMeasurements )
+        self.vidPanel.Bind( wx.EVT_LEFT_DOWN, self.pickPoint )
+        self.vidPanel.Bind( wx.EVT_RIGHT_DOWN, self.clearMeasurements )
         self.b_framePrevious.Bind( wx.EVT_BUTTON, self.framePrevious )
         self.slider_time.Bind( wx.EVT_SCROLL_CHANGED, self.scrubDone )
         self.slider_time.Bind( wx.EVT_SLIDER, self.scrub )
