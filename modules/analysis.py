@@ -76,7 +76,7 @@ class VispyPCD():
         log.currentEntry.distance = planeDepth
         log.currentEntry.rotation = (sliceX, sliceY)
         log.currentEntry.points = len(dm.PointCloud.pointsOnPlane)
-        log.currentEntry.CSarea = str(round(dm.PointCloud.area,6))
+        log.currentEntry.CSarea = str(round(dm.PointCloud.area,5))
 
     @classmethod
     def getIntersection(self):

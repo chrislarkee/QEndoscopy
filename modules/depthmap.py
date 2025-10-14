@@ -103,7 +103,7 @@ class PointCloud:
     FOV          = np.radians(125.0)
     SENSOR_WIDTH = 3.6      #mm. square sensor.
     FOCAL_LENGTH = 2.5      #mm
-    DEPTH_CALIB = 0.918     #adjustment factor for depth (from testing)
+    #DEPTH_CALIB = #0.918     #adjustment factor for depth (from testing)
     pointCloudCache = None
     pointsOnPlane   = None
     _slice_mask      = np.zeros((720,720), dtype=np.bool) #used for the overlay
@@ -117,6 +117,7 @@ class PointCloud:
         theta_max = self.FOV / 2
 
         # Convert pixel coordinates to normalized image coordinates
+        #x = (pixel_coo - (self.IMG_SIZE / 2))
         x = (pixel_coords[0] - (self.IMG_SIZE / 2))
         y = (pixel_coords[1] - (self.IMG_SIZE / 2))
 
@@ -131,10 +132,10 @@ class PointCloud:
         phi = np.arctan2(y, x)
 
         # Convert spherical coordinates to Cartesian 3D coordinates
-        trueDepth = depth * self.DEPTH_CALIB
-        X = trueDepth * np.sin(theta) * np.cos(phi)
-        Y = trueDepth * np.sin(theta) * np.sin(phi)
-        Z = trueDepth * np.cos(theta)
+        #depth = depth * self.DEPTH_CALIB
+        X = depth * np.sin(theta) * np.cos(phi)
+        Y = depth * np.sin(theta) * np.sin(phi)
+        Z = depth * np.cos(theta)
 
         return (X, Y, Z)
     
@@ -160,8 +161,7 @@ class PointCloud:
 
         # Convert spherical coordinates to Cartesian 3D coordinates
         out = np.zeros((depthmap.shape[0],depthmap.shape[1],3), dtype=np.double)   
-        #xy[:,:,2] = xy[:,:,2] * self.DEPTH_CALIB
-        depthmap = depthmap * self.DEPTH_CALIB
+        #depthmap = depthmap * self.DEPTH_CALIB
         out[:,:,0] =  depthmap * np.sin(theta) * np.cos(phi)
         out[:,:,1] =  depthmap * np.sin(theta) * np.sin(phi) * -1
         out[:,:,2] =  depthmap * np.cos(theta)
@@ -176,8 +176,8 @@ class PointCloud:
         plane_point = slicerMatrix.matrix[3, :3]
 
         # Calculate the signed distance from each point to the plane        
-        distances = np.dot(self.pointCloudCache - plane_point, plane_normal)
-        self._slice_mask = np.abs(distances) < 0.004        #define threshold here     
+        planeDistances = np.dot(self.pointCloudCache - plane_point, plane_normal)
+        self._slice_mask = np.abs(planeDistances) < 0.004        #define threshold here     
         self.pointsOnPlane = self.pointCloudCache[self._slice_mask]
 
         if len(self.pointsOnPlane) <= 4:
@@ -186,108 +186,160 @@ class PointCloud:
             return
 
         #gui's method
+        N_points = self.pointsOnPlane.shape[0]  # Number of points on curve perimeter
+        # *************************************************************************
+        #                   FIND VECTOR NORMAL TO CROSS-SECTION
+        # *************************************************************************
+
+        # Point P1 = centroid of perimeter points
         P1 = np.mean(self.pointsOnPlane, axis=0)
 
-        # Compute distance from point P1 to all other points
-        vectors = self.pointsOnPlane - P1
-        distances = np.linalg.norm(vectors, axis=1)
-
-        min_index = np.argmin(distances)
-        max_index = np.argmax(distances)
+        # Compute distance from point P1 to all other points (vectorized)
+        distance = np.linalg.norm(self.pointsOnPlane - P1, axis=1)
+        
+        min_index = np.argmin(distance)
+        max_index = np.argmax(distance)
 
         # Point P2 = point nearest to point P1
-        P2 = self.pointsOnPlane[min_index]
+        P2 = self.pointsOnPlane[min_index, :]
 
         # Point P3 = point farthest from point P1
-        P3 = self.pointsOnPlane[max_index]
+        P3 = self.pointsOnPlane[max_index, :]
 
         # Compute normal vector
         V1 = P2 - P1
+        V2 = P3 - P1
+        N = np.cross(V1, V2)
+        N = N / np.linalg.norm(N)
+
+        # *************************************************************************
+        #               PROJECT POINTS FROM 3D SPACE ONTO 2D PLANE
+        # *************************************************************************
+        
         # U1 = cross product of N and V1
-        U1 = np.cross(plane_normal, V1)
+        U1 = np.cross(N, V1)
         U1 = U1 / np.linalg.norm(U1)
 
         # U2 = cross product of N and U1
-        U2 = np.cross(plane_normal, U1)
+        U2 = np.cross(N, U1)
         U2 = U2 / np.linalg.norm(U2)
 
-        # Compute coordinates of points on plane defined by U1 and U2
-        # Using vectorization for efficiency instead of a loop
-        V_vectors = self.pointsOnPlane - P1
-        X_point_on_plane = np.dot(V_vectors, U1)
-        Y_point_on_plane = np.dot(V_vectors, U2)
-
+        # Compute coordinates of points on plane defined by U1 and U2 (vectorized)
+        V = self.pointsOnPlane - P1
+        X_point_on_plane = np.dot(V, U1)
+        Y_point_on_plane = np.dot(V, U2)
 
         # Translate origin to the center of the cross-section
-        X_max = np.max(X_point_on_plane)
-        Y_max = np.max(Y_point_on_plane)
-        X_min = np.min(X_point_on_plane)
-        Y_min = np.min(Y_point_on_plane)
-        X_new_origin = X_min + 0.5 * (X_max - X_min)
-        Y_new_origin = Y_min + 0.5 * (Y_max - Y_min)
+        X_new_origin = np.min(X_point_on_plane) + 0.5 * (np.max(X_point_on_plane) - np.min(X_point_on_plane))
+        Y_new_origin = np.min(Y_point_on_plane) + 0.5 * (np.max(Y_point_on_plane) - np.min(Y_point_on_plane))
         X_point_on_plane = X_point_on_plane - X_new_origin
         Y_point_on_plane = Y_point_on_plane - Y_new_origin
-        Points_on_plane = np.vstack((X_point_on_plane, Y_point_on_plane)).T
+        
+        Points_on_plane = np.column_stack((X_point_on_plane, Y_point_on_plane))
 
+        # *************************************************************************
+        #                       SMOOTH THE PERIMETER CURVE
+        # *************************************************************************
 
-        # *************************************************************************#
-        #                       SMOOTH THE PERIMETER CURVE                         #
-        # *************************************************************************#
-        # This section re-orders and down-samples the 2D points to create a
-        # smoother, more evenly spaced perimeter.
+        radius = 0.02  # Target spacing between points in smooth curve
+        Points_smooth_perimeter = []
+        
+        # Create a boolean mask for points that haven't been removed yet
+        available_points_mask = np.ones(N_points, dtype=bool)
+        current_index = 0 # Start with the first point
 
-        radius = 0.05  # Target spacing between points in smooth curve
+        while np.any(available_points_mask):
+            # Choose the next available point
+            # Find the first 'True' value in the mask from the current_index
+            available_indices = np.where(available_points_mask)[0]
+            if not np.any(available_indices >= current_index):
+                current_index = available_indices[0]
+            else:
+                current_index = available_indices[available_indices >= current_index][0]
 
-        # Make a copy of the points to modify
-        remaining_points = Points_on_plane.copy()
-        smooth_perimeter_list = []
-
-        # Start with the first point in the array
-        current_point = remaining_points[0, :]
-        smooth_perimeter_list.append(current_point)
-        remaining_points = np.delete(remaining_points, 0, axis=0)
-
-        while remaining_points.shape[0] > 0:
-            # Find the point in the remaining list closest to the current_point
-            vectors = remaining_points - current_point
-            distances = np.linalg.norm(vectors, axis=1)
-            
-            # Get the index of the closest point
-            closest_index = np.argmin(distances)
-            
-            # Update the current point to this new closest point
-            current_point = remaining_points[closest_index, :]
+            P1 = Points_on_plane[current_index, :]
             
             # Add this point to the smooth curve
-            smooth_perimeter_list.append(current_point)
+            Points_smooth_perimeter.append(P1)
             
-            # Remove all points from the remaining list that are too close to the *new* current_point
-            vectors_from_new_current = remaining_points - current_point
-            distances_from_new_current = np.linalg.norm(vectors_from_new_current, axis=1)
+            # Compute distance from point P1 to all other available points
+            distances = np.linalg.norm(Points_on_plane[available_points_mask, :] - P1, axis=1)
             
-            # Keep only the points that are far enough away
-            points_to_keep = distances_from_new_current >= radius
-            remaining_points = remaining_points[points_to_keep, :]
+            # Get indices of points to remove (relative to the available points)
+            indices_to_remove_relative = np.where(distances < radius)[0]
 
-        Points_smooth_perimeter = np.array(smooth_perimeter_list)
+            # Convert relative indices to original indices
+            original_indices_to_remove = np.where(available_points_mask)[0][indices_to_remove_relative]
+            
+            # Mark points for removal
+            available_points_mask[original_indices_to_remove] = False
 
-        # *************************************************************************#
-        #                            AREA CALCULATION                             #
-        # *************************************************************************#
-        # This section computes the cross-sectional area using the shoelace formula.
-        # The points must be sorted sequentially around the perimeter for this to work,
-        # which was accomplished in the "SMOOTH THE PERIMETER CURVE" step.
-
+        Points_smooth_perimeter = np.array(Points_smooth_perimeter)
         N_points_smooth_curve = Points_smooth_perimeter.shape[0]
+
+        # *************************************************************************
+        #           ORDER ARRAY SO THAT NEIGHBOR POINTS ARE IN SEQUENCE
+        # *************************************************************************
+        # This complex section for re-ordering and fixing crossing segments has been
+        # replaced by a simpler and more robust nearest-neighbor sorting approach.
+        
+        # Start with the first point and find the next closest point until all points are ordered.
+        Points_in_order = np.zeros_like(Points_smooth_perimeter)
+        remaining_points = list(range(N_points_smooth_curve))
+        
+        current_idx = remaining_points.pop(0) # Start with point 0
+        Points_in_order[0, :] = Points_smooth_perimeter[current_idx, :]
+
+        for i in range(1, N_points_smooth_curve):
+            last_point = Points_in_order[i-1, :]
+            
+            # Calculate distances from the last ordered point to all remaining points
+            dist_to_remaining = np.linalg.norm(Points_smooth_perimeter[remaining_points, :] - last_point, axis=1)
+            
+            # Find the index of the closest point among the remaining ones
+            closest_in_remaining_idx = np.argmin(dist_to_remaining)
+            
+            # Get the original index of that point
+            original_idx = remaining_points.pop(closest_in_remaining_idx)
+            
+            # Add it to the ordered list
+            Points_in_order[i, :] = Points_smooth_perimeter[original_idx, :]
+
+        Points_smooth_perimeter = Points_in_order
+        N_points_smooth_curve = Points_smooth_perimeter.shape[0]
+
+        # *************************************************************************
+        #                            AREA CALCULATION
+        # *************************************************************************
+        # This section computes the cross-sectional area using the Shoelace formula.
+        
         X_smooth_curve = Points_smooth_perimeter[:, 0]
         Y_smooth_curve = Points_smooth_perimeter[:, 1]
 
-        # Compute Delta X
-        # This is the difference between each x-coordinate and the next one in the sequence
-        Delta_X = np.roll(X_smooth_curve, -1) - X_smooth_curve
+        # Shoelace formula for area of a polygon
+        # Area = 0.5 * |(x1*y2 + x2*y3 + ... + xn*y1) - (y1*x2 + y2*x3 + ... + yn*x1)|
+        self.area = 0.5 * np.abs(np.dot(X_smooth_curve, np.roll(Y_smooth_curve, -1)) - np.dot(Y_smooth_curve, np.roll(X_smooth_curve, -1)))
 
-        # Compute area using the shoelace formula variation
-        self.area = np.abs(np.sum(Y_smooth_curve * Delta_X))
+    
+
+
+    @classmethod
+    def measureIntersection2(self, slicerMatrix):        
+        #compute prerequisites for the intersecting points formulas
+        plane_normal = np.linalg.inv(slicerMatrix.matrix[:3, :3]) @ np.array([0, 0, 1])
+        plane_normal /= np.linalg.norm(plane_normal)
+        plane_point = slicerMatrix.matrix[3, :3]
+
+        # Calculate the signed distance from each point to the plane        
+        distances = np.dot(self.pointCloudCache - plane_point, plane_normal)
+        self._slice_mask = np.abs(distances) < 0.004        #define threshold here     
+        self.pointsOnPlane = self.pointCloudCache[self._slice_mask]
+
+        if len(self.pointsOnPlane) <= 4:
+            self.area = 0
+            self._slice_mask = np.zeros((720,720), dtype=np.bool)
+            return
+        
 
     @classmethod
     def savePointCloud(self, filename, visibility=0):                

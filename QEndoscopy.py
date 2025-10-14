@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import wx
 from sys import argv
-from os import environ
-environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
+#from os import environ
+#environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
-if __name__ == '__main__':
-    #print("Loading the app:")
+if __name__ == '__main__':    
     app = wx.App(False)
 
+    #present temp loading screen
     info = wx.BusyInfo("Loading QEndoscopy...")
     wx.GetApp().Yield()
     from modules.main import main

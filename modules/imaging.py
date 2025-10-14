@@ -103,10 +103,15 @@ class Video:
 
     @classmethod
     def getLength(self):
-        # returns nice looking string: (5:00.00)
-        minutes = str(floor((self._maxFrame / self._rate) / 60)).zfill(2)
-        seconds = str(round((self._maxFrame / self._rate) % 60, 2))
-        return " (" + minutes + ":" + seconds + ")"        
+        # converts the length of the video from a frame number into readable timecode    
+        frames = self._maxFrame % self._rate
+        total_seconds = self._maxFrame // self._rate
+        seconds = total_seconds % 60
+        total_minutes = total_seconds // 60
+        minutes = total_minutes % 60
+        hours = total_minutes // 60
+
+        return f" ({hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}:{frames:02.0f})"
 
     @classmethod
     def nextFrame(self):
