@@ -177,7 +177,7 @@ class PointCloud:
 
         # Calculate the signed distance from each point to the plane        
         planeDistances = np.dot(self.pointCloudCache - plane_point, plane_normal)
-        self._slice_mask = np.abs(planeDistances) < 0.004        #define threshold here     
+        self._slice_mask = np.abs(planeDistances) < 0.006        #define threshold here     
         self.pointsOnPlane = self.pointCloudCache[self._slice_mask]
 
         if len(self.pointsOnPlane) <= 4:
